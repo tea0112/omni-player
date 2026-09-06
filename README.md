@@ -80,6 +80,18 @@ ffmpeg -i "video.mkv" -map 0:v:0 -map 0:a:0 -c:v copy -c:a aac -b:a 320k -movfla
 
 Sau đó kéo–thả cặp `.mp4` + `.srt` vào app là có đủ tiếng + phụ đề. App cũng sẽ **tự cảnh báo** khi phát file mà browser decode không ra audio.
 
+### Script convert tự động cả thư viện
+
+[`tools/convert-for-web.py`](tools/convert-for-web.py) làm hết các bước trên cho cả thư viện video (đệ quy), chạy trên Windows / Linux / macOS / Android (Termux) — chỉ cần có ffmpeg trong PATH:
+
+```bash
+python tools/convert-for-web.py "D:\\Phim"            # convert cả thư mục, xuất .mp4 cạnh file gốc
+python tools/convert-for-web.py "Phim" --out ./web    # xuất sang thư mục khác (giữ cây thư mục)
+python tools/convert-for-web.py Phim --dry-run        # xem kế hoạch trước khi convert
+```
+
+Nguyên tắc giữ chất lượng: video đã là H.264 8-bit → **stream copy nguyên vẹn 100%** (chỉ đổi container); HEVC/VP9/AV1/10-bit → re-encode H.264 CRF 19; audio → AAC; phụ đề text nhúng → extract thành `.srt` cạnh file (đặt tên theo ngôn ngữ). File đã hợp lệ sẽ tự bỏ qua — chạy lại nhiều lần an toàn.
+
 ## Vì sao file không bị "upload"?
 
 Site tĩnh không có backend. Khi bạn chọn file, trình duyệt tạo một `blob:` URL — một tham chiếu đọc-only tới file trên ổ đĩa của bạn, chỉ tồn tại trong tab hiện tại. Không một byte nào của video/phụ đề rời khỏi máy. Vị trí xem dở được lưu trong `localStorage` của chính trình duyệt bạn.
