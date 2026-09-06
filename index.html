@@ -108,14 +108,14 @@ svg{display:block}
   position:relative; height:22px; display:flex; align-items:center; cursor:pointer;
   touch-action:none; margin:0 6px;
 }
-#progressBar .track{position:relative; height:4px; width:100%; background:rgba(255,255,255,.25); border-radius:2px; overflow:visible; transition:height .12s}
-#progressBar:hover .track, #progressBar.dragging .track{height:6px}
+#progressBar .track{position:relative; height:5px; width:100%; background:rgba(255,255,255,.25); border-radius:3px; overflow:visible; transition:height .12s}
+#progressBar:hover .track, #progressBar.dragging .track{height:8px}
 #buffered{position:absolute; left:0; top:0; bottom:0; background:rgba(255,255,255,.38); border-radius:2px; width:0}
 #played{position:absolute; left:0; top:0; bottom:0; background:var(--acc); border-radius:2px; width:0}
 #loopRegion{position:absolute; top:-3px; bottom:-3px; background:rgba(240,64,64,.35); border:1px solid rgba(240,64,64,.8); border-radius:4px}
 #loopRegion[hidden]{display:none}
 #thumb{
-  position:absolute; top:50%; width:13px; height:13px; border-radius:50%;
+  position:absolute; top:50%; width:14px; height:14px; border-radius:50%;
   background:var(--acc); transform:translate(-50%,-50%) scale(0); transition:transform .12s;
 }
 #progressBar:hover #thumb, #progressBar.dragging #thumb{transform:translate(-50%,-50%) scale(1)}
@@ -1193,9 +1193,15 @@ let volHudTimer=null;
 wrap.addEventListener('wheel', e=>{
   if(!state.videoFile) return;
   e.preventDefault();
+  showControls();
+  /* Lăn chuột trên progress bar = tua theo bước đã đặt */
+  if(e.target.closest('#progressBar')){
+    seekBy(e.deltaY<0 ? state.seekStep : -state.seekStep, true);
+    return;
+  }
+  /* Còn lại: chỉnh âm lượng */
   video.muted=false;
   video.volume=clamp(video.volume + (e.deltaY<0?0.05:-0.05), 0, 1);
-  showControls();
   let hud=document.getElementById('volHud');
   if(!hud){
     hud=document.createElement('div'); hud.id='volHud';
