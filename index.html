@@ -95,6 +95,7 @@ svg{display:block}
   #centerCtl{display:flex}
   #bigPlay{display:none!important}
 }
+body.touch #bigPlay{display:none!important}
 
 /* seek feedback bubble */
 .seek-bubble{
@@ -536,7 +537,7 @@ kbd{
           <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
           <span id="ccBackL">5s</span>
         </button>
-        <button id="ccPlay" title="Phát / Dừng">
+        <button id="ccPlay" class="ccb" title="Phát / Dừng">
           <svg id="icPlayC" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           <svg id="icPauseC" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
         </button>
@@ -1783,7 +1784,8 @@ function updatePlayUI(){
   const paused=video.paused;
   icPlay.style.display=paused?'':'none';
   icPause.style.display=paused?'none':'';
-  bigPlay.hidden=!state.videoFile || !paused;
+  /* trên màn cảm ứng đã có nút play to ở centerCtl — bigPlay chỉ dành cho desktop */
+  bigPlay.hidden=!state.videoFile || !paused || isTouchLike;
   $('#icPlayC').style.display=paused?'':'none';
   $('#icPauseC').style.display=paused?'none':'';
 }
