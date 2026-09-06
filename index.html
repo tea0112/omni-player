@@ -274,25 +274,25 @@ svg{display:block}
   border-left:3px solid transparent; position:relative;
 }
 .cue:hover{background:#1c1c1c}
-.cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px; transition:opacity .12s}
-/* 2 nút hành động overlay lên ô thời gian khi hover — không chiếm diện tích thường trực */
+.cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px}
+/* hàng nút lặp/AI/copy nằm DƯỚI text của cue — không đè lên chữ */
 .cue-actions{
-  position:absolute; left:4px; top:50%; transform:translateY(-50%);
-  display:flex; gap:2px; opacity:0; transition:opacity .12s;
-  background:linear-gradient(90deg, #1c1c1c 78%, transparent);
-  padding-right:14px;
+  grid-column:1/-1; display:flex; gap:6px; align-items:center;
+  opacity:0; pointer-events:none; height:0; overflow:hidden;
+  transition:opacity .12s, height .15s, margin-top .15s;
 }
-.cue:hover .cue-actions{opacity:1}
-.cue:hover .cue-time{opacity:0}
-.cue.loop-a .cue-actions, .cue.loop-b .cue-actions{opacity:1}
+.cue:hover .cue-actions, .cue.loop-a .cue-actions, .cue.loop-b .cue-actions{
+  opacity:1; pointer-events:auto; height:32px; margin-top:4px;
+}
 .cue-actions button{
-  width:26px; height:26px; border-radius:6px; display:grid; place-items:center; color:#999;
+  width:38px; height:30px; border-radius:6px; display:grid; place-items:center; color:#999;
 }
 .cue-actions button:hover{background:#ffffff1a}
 .cue-actions .cue-loop{color:#999}
 .cue.loop-a .cue-loop, .cue.loop-b .cue-loop{color:var(--acc2)}
+.cue-actions .cue-ai:hover{color:var(--acc2)}
 .cue-actions .cue-copy:hover{color:#8fb4ff}
-.cue-actions svg{width:13px;height:13px;fill:currentColor}
+.cue-actions svg{width:14px;height:14px;fill:currentColor}
 .cue-ai{width:26px; height:26px; display:grid; place-items:center; color:#999}
 .cue-ai:hover{color:var(--acc2); background:#ffffff1a}
 .cue-ai svg{width:13px; height:13px; fill:currentColor}
@@ -321,10 +321,9 @@ svg{display:block}
 .ai-acc .ai-err{color:#ff8a80; font-size:13px; line-height:1.5}
 .ai-acc .ai-retry{color:var(--acc2); font-weight:600; margin-left:8px}
 .cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px}
-/* màn cảm ứng không có hover -> nút luôn hiện (đè lên ô thời gian) */
+/* màn cảm ứng không có hover -> hàng nút luôn hiện dưới cue */
 @media (hover:none) and (pointer:coarse){
-  .cue-actions{opacity:1}
-  .cue .cue-time{opacity:0}
+  .cue-actions{opacity:1; pointer-events:auto; height:32px; margin-top:4px}
 }
 .cue-text{font-size:14.5px; color:#ddd; white-space:pre-line; word-break:break-word}
 .cue.active{background:#303030}
@@ -961,6 +960,7 @@ function renderTranscript(){
 list.addEventListener('click', e=>{
   const row=e.target.closest('.cue'); if(!row) return;
   const i=+row.dataset.i;
+  if(e.target.closest('.cue-actions')) return; // bấm hàng nút / khoảng trống: không seek
   if(e.target.closest('.cue-loop')) loopClick(i);
   else if(e.target.closest('.cue-copy')) copyCue(i);
   else if(e.target.closest('.cue-ai')) aiAnalyze(i);
