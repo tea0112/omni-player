@@ -43,6 +43,16 @@ OK_VIDEO_CODEC = "h264"
 OK_VIDEO_PIXFMT = "yuv420p"   # 10-bit / 4:2:2 đều phải encode lại
 OK_AUDIO_CODEC = "aac"
 
+HDR_TRANSFERS = ("smpte2084", "arib-std-b67")   # HDR10/PQ, HLG
+# Chuỗi filter tone-map HDR -> SDR BT.709 (cần ffmpeg build có zscale)
+TONEMAP_VF = ("zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=linear,"
+              "tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p")
+
+
+def is_hdr(vstream):
+    return (vstream.get("color_transfer") in HDR_TRANSFERS
+            or vstream.get("color_primaries") == "bt2020")
+
 
 def eprint(*a):
     print(*a, file=sys.stderr)
