@@ -359,6 +359,17 @@ svg{display:block}
 @media (hover:none) and (pointer:coarse){
   .cue-actions{opacity:1; pointer-events:auto; height:32px; margin-top:4px}
 }
+/* iPad/desktop-mode vẫn báo pointer:fine — dùng class touch do JS detect (maxTouchPoints) */
+body.touch .cue-actions{opacity:1; pointer-events:auto; height:32px; margin-top:4px}
+body.touch #centerCtl{display:flex}
+body.touch #bigPlay{display:none!important}
+body.touch #volSlider{display:none}
+body.touch #searchInput{width:0; padding-left:0; padding-right:0; flex:0 0 auto}
+body.touch #searchWrap.searching #searchInput{flex:1; padding:8px 0}
+body.touch #btnCase, body.touch #searchCount{display:none}
+body.touch #searchWrap.searching #btnCase{display:grid}
+body.touch #searchWrap.searching #searchCount{display:inline}
+body.touch .search-ico{cursor:pointer}
 .cue-text{font-size:14.5px; color:#ddd; white-space:pre-line; word-break:break-word}
 .cue.active{background:#303030}
 .cue.active .cue-text{color:#fff; font-weight:600}
@@ -690,6 +701,7 @@ kbd{
           <option value="openrouter">+ OpenRouter</option>
           <option value="openai">+ OpenAI</option>
           <option value="zen">+ OpenCode Zen</option>
+          <option value="go">+ OpenCode Go</option>
           <option value="gemini">+ Gemini (Google — context caching)</option>
           <option value="custom">+ Custom (tự điền base URL)</option>
         </select>
@@ -698,13 +710,19 @@ kbd{
       <div class="row" style="margin-top:10px">
         <div class="slabel"><span>Ngữ cảnh gửi AI</span>
           <select id="aiContextSel">
-            <option value="full">Toàn bộ phim (chuẩn nhất)</option>
-            <option value="window">±5 câu (tiết kiệm token)</option>
+            <option value="window">±5 câu quanh câu đang xem (nhanh nhất)</option>
+            <option value="full">Toàn bộ phim (đầy đủ bối cảnh nhất)</option>
           </select>
         </div>
         <div class="slabel"><span>Ngôn ngữ giải thích</span>
           <input type="text" id="aiLang" value="Tiếng Việt"></div>
         <button class="preset" id="aiTest" style="align-self:flex-end; min-height:40px">Kiểm tra tất cả</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label style="display:flex; align-items:center; gap:8px; flex:1; min-width:0; font-size:13px; color:#c9c9c9">
+          <input type="checkbox" id="aiPrefetchChk" checked style="accent-color:var(--acc); width:16px; height:16px">
+          Tự tải trước phân tích câu kế tiếp (bấm ✨ có kết quả ngay)
+        </label>
       </div>
       <div class="hint" id="aiStatus">Key chỉ nằm trong máy bạn. Gemini dùng context caching — ngữ cảnh bơm 1 lần/h giờ. Provider OpenAI-compatible tận dụng automatic prompt caching.</div>
     </div>
@@ -813,6 +831,9 @@ const stepInput=$('#stepInput'), stepPresets=$('#stepPresets'), jumpInput=$('#ju
 const btnAutoPause=$('#btnAutoPause'), btnAutoScroll=$('#btnAutoScroll'), btnClearLoop=$('#btnClearLoop'), btnClosePanel=$('#btnClosePanel');
 
 const isCoarse = matchMedia('(hover: none) and (pointer: coarse)').matches;
+/* iPad Brave/Chrome ở desktop-mode vẫn báo pointer:fine — phải detect touch thật */
+const isTouchLike = isCoarse || navigator.maxTouchPoints > 1;
+document.body.classList.toggle('touch', isTouchLike);
 const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 
 /* ================= State ================= */
@@ -829,7 +850,7 @@ const state = {
   sub2File:null, sub2Buffer:null, cues2:[], pairs2:null, sub2Visible:true, sub2Meta:null, hasS2Handle:false, pendingSub2:null,
   subStyle:{scale:1, pos:14, bg:'dim', color:'#ffffff', font:'default'},
   ai:{chain:[{id:'g1', name:'Gemini', type:'gemini', base:'', key:'', model:'gemini-2.0-flash', on:true}],
-      context:'full', lang:'Tiếng Việt'},
+      context:'window', lang:'Tiếng Việt', prefetch:true},
   aiCache:null, aiCacheMap:null, aiCtrl:null, aiCaches:{},
 };
 
@@ -1049,6 +1070,7 @@ function onActiveRowChange(i){
     rows[i].classList.add('active');
     if(state.autoScroll && Date.now()>=(state.userScrollUntil||0)) scrollRowIntoView(i,false);
   }
+  if(i>=0 && state.playing) maybePrefetchNext(i);
 }
 function scrollRowIntoView(i, instant){
   const r=rows[i]; if(!r) return;
@@ -1188,12 +1210,13 @@ const AI_PRESETS=[
   {id:'openrouter', name:'OpenRouter',      type:'openai', base:'https://openrouter.ai/api/v1',        model:'google/gemini-2.0-flash-001'},
   {id:'openai',     name:'OpenAI',          type:'openai', base:'https://api.openai.com/v1',           model:'gpt-4o-mini'},
   {id:'zen',        name:'OpenCode Zen',    type:'openai', base:'https://opencode.ai/zen/v1',          model:'grok-code'},
+  {id:'go',         name:'OpenCode Go',     type:'openai', base:'https://opencode.ai/zen/go/v1',       model:'qwen3.7-max'},
   {id:'gemini',     name:'Gemini',          type:'gemini', base:'',                                    model:'gemini-2.0-flash'},
   {id:'custom',     name:'Custom',          type:'openai', base:'',                                    model:''},
 ];
 function aiSystemPrompt(lang){
   return `You are an expert English-teaching assistant for Vietnamese speakers. You analyze ONE movie subtitle line using the film's full subtitle context.
-Respond in ${lang} following EXACTLY these 6 markdown sections, in this order, with these headings:
+Respond in ${lang} following EXACTLY these 6 markdown sections, in this order:
 
 ### 1. IPA (General American)
 - Only words at CEFR A2 or above (skip trivial A1 words: the, a, an, in, on, at, was, is, to, of, and...).
@@ -1215,8 +1238,11 @@ Respond in ${lang} following EXACTLY these 6 markdown sections, in this order, w
 ### 6. Bối cảnh
 - Using the film context: what is happening, who speaks to whom, the purpose of this line, what it leads to.
 
-Rules: markdown only (###/**/*/lists/\`code\`); no HTML; be concise but complete.
-Output STRICT JSON only — no prose, no code fences:
+STRICT RULES:
+- EVERY section's content MUST be written in ${lang}. Only these stay in English: IPA symbols, the original cue, quoted English words/phrases, and everything inside the "meaning_en" field.
+- Each JSON field contains ONLY its section content — NEVER repeat the section heading (no "### 1. ..." lines inside fields).
+- NO preamble, no <think> blocks in the output, no explanations outside the JSON. Start the answer directly with "{".
+Output STRICT JSON only:
 {"ipa":"markdown","connected_speech":"markdown","grammar":"markdown","meaning_vi":"markdown","meaning_en":"markdown","context":"markdown"}`;
 }
 function aiCtxText(idx){
@@ -1270,7 +1296,7 @@ function renderAiAcc(idx, data, via){
     '<button class="ai-copy-btn" title="Copy toàn bộ">Copy</button>'+
     '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
   for(const [k,title] of secs){
-    html+='<h5>'+title+'</h5><div class="ai-sec">'+mdRender(j[k]||'—')+'</div>';
+    html+='<h5>'+title+'</h5><div class="ai-sec">'+mdRender(stripLeadHeadings(j[k]||'—'))+'</div>';
   }
   div.innerHTML=html;
   div.querySelector('.ai-copy-btn').addEventListener('click', ()=>{
@@ -1280,6 +1306,7 @@ function renderAiAcc(idx, data, via){
   });
 }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function stripLeadHeadings(md){ const L=String(md||'').split('\n'); while(L.length && /^\s*#{1,6}\s/.test(L[0])) L.shift(); return L.join('\n'); }
 function mdRender(md){
   const lines=String(md||'').split('\n'); let out='', inUl=false;
   const inline=s=>escHtml(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/\*([^*\n]+)\*/g,'<i>$1</i>').replace(/`([^`]+)`/g,'<code>$1</code>');
@@ -1347,7 +1374,7 @@ async function aiCallGeminiP(p, cue, idx, signal){
   }
   const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(p.model)+':generateContent?key='+encodeURIComponent(p.key),{
     method:'POST', headers:{'Content-Type':'application/json'}, signal,
-    body:JSON.stringify({...body, generationConfig:{responseMimeType:'application/json', temperature:0.4}})});
+    body:JSON.stringify({...body, generationConfig:{responseMimeType:'application/json', temperature:0.4, maxOutputTokens:3000}})});
   if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('Gemini HTTP '+res.status+': '+e.slice(0,160)); }
   const j=await res.json();
   return {text:j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || ''};
@@ -1365,44 +1392,58 @@ async function aiCallOpenAIP(p, cue, idx, signal){
   if(/openrouter\.ai/i.test(p.base)){ headers['HTTP-Referer']=location.origin; headers['X-Title']='Omni Player'; }
   const res=await fetch(p.base.replace(/\/+$/,'')+'/chat/completions',{
     method:'POST', headers, signal,
-    body:JSON.stringify({model:p.model, messages, temperature:0.4})});
+    body:JSON.stringify({model:p.model, messages, temperature:0.4, max_tokens:3000})});
   if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('HTTP '+res.status+': '+e.slice(0,160)); }
   const j=await res.json();
   return {text:j.choices?.[0]?.message?.content||''};
 }
+async function aiRunAnalysis(idx, signal){
+  const cue=state.cues[idx]; if(!cue) throw new Error('không có cue');
+  const chain=state.ai.chain.filter(p=>p.on);
+  if(!chain.length) throw new Error('Chưa bật AI profile nào');
+  if(!chain.some(p=>p.key)) throw new Error('Chưa có API key');
+  const errors=[];
+  for(const p of chain){
+    try{
+      const r=p.type==='gemini' ? await aiCallGeminiP(p, cue, idx, signal) : await aiCallOpenAIP(p, cue, idx, signal);
+      const parsed=aiParse(r.text);
+      if(!parsed) throw new Error('JSON trả về không đọc được');
+      const data={at:Date.now(), content:r.text, parsed, via:p.name};
+      aiCacheSet(aiCacheKey(cue), data);
+      return data;
+    }catch(err){
+      if(err.name==='AbortError') throw err;
+      errors.push(p.name+': '+err.message);
+    }
+  }
+  throw new Error('Tất cả provider đều lỗi — '+errors.join(' ← '));
+}
 async function aiAnalyze(idx){
   const cue=state.cues[idx]; if(!cue) return;
-  const chain=state.ai.chain.filter(p=>p.on);
-  if(!chain.length){ toast('Chưa bật AI profile nào — thêm trong ⚙ Cài đặt.', {label:'Mở cài đặt', fn:()=>$('#btnSettings').click()}); return; }
-  if(!chain.some(p=>p.key)){ toast('Chưa có API key — mở ⚙ Cài đặt, phần AI.', {label:'Mở cài đặt', fn:()=>$('#btnSettings').click()}); return; }
+  if(!state.ai.chain.some(p=>p.on && p.key)){ toast('Chưa có API key — thêm trong ⚙ Cài đặt, phần AI.', {label:'Mở cài đặt', fn:()=>$('#btnSettings').click()}); return; }
   video.pause();
   openAiAcc(idx);
   const ck=aiCacheKey(cue);
   const cached=aiCacheGet(ck);
-  if(cached){ renderAiAcc(idx, cached, null); return; }
+  if(cached){ renderAiAcc(idx, cached, cached.via); return; }
   const ctrl=new AbortController(); state.aiCtrl=ctrl;
-  const errors=[];
   try{
-    for(const p of chain){
-      try{
-        const r=p.type==='gemini' ? await aiCallGeminiP(p, cue, idx, ctrl.signal) : await aiCallOpenAIP(p, cue, idx, ctrl.signal);
-        const parsed=aiParse(r.text);
-        const data={at:Date.now(), content:r.text, parsed, via:p.name};
-        aiCacheSet(ck, data);
-        renderAiAcc(idx, data, p.name);
-        state.aiCtrl=null;
-        return;
-      }catch(err){
-        if(err.name==='AbortError') throw err;
-        errors.push(p.name+': '+err.message);
-        continue; // fallback sang profile kế tiếp
-      }
-    }
-    renderAiAcc(idx, {error:'Tất cả provider đều lỗi — '+errors.join(' ← ')});
+    const data=await aiRunAnalysis(idx, ctrl.signal);
+    renderAiAcc(idx, data, data.via);
   }catch(err){
     if(err.name==='AbortError'){ const el=document.querySelector('.ai-acc'); if(el) el.remove(); return; }
     renderAiAcc(idx, {error:err.message||'Lỗi không xác định'});
   }finally{ if(state.aiCtrl===ctrl) state.aiCtrl=null; }
+}
+const aiPrefetched=new Set();
+function maybePrefetchNext(idx){
+  if(state.ai.prefetch===false || !state.playing) return;
+  const ni=idx+1, cue=state.cues[ni];
+  if(!cue) return;
+  const ck=aiCacheKey(cue);
+  if(aiCacheGet(ck) || aiPrefetched.has(ck)) return;
+  aiPrefetched.add(ck);
+  aiRunAnalysis(ni, null).catch(()=>{ aiPrefetched.delete(ck); });
 }
 
 /* ================= Loop A–B ================= */
@@ -1617,7 +1658,7 @@ $('#btnBack').addEventListener('click', ()=>seekBy(-state.seekStep,true));
 $('#btnFwd').addEventListener('click', ()=>seekBy(state.seekStep,true));
 const volPop=$('#volPop');
 $('#btnMute').addEventListener('click', ()=>{
-  if(isCoarse){ volPop.classList.toggle('open'); return; } // mobile: mở popup âm lượng dọc
+  if(isTouchLike){ volPop.classList.toggle('open'); return; } // mobile: mở popup âm lượng dọc
   video.muted=!video.muted;
 });
 $('#btnMuteV').addEventListener('click', ()=>{ video.muted=!video.muted; });
@@ -1791,6 +1832,7 @@ function setVideo(file, handle){
   closeAiAcc();
   state.resumeKey=sessionKey(file);
   state.aiCache=null; state.aiCacheMap=null;
+  aiPrefetched.clear();
   state.hasVHandle=!!handle; state.hasSHandle=false;
   if(handle) idbSet('v:'+state.resumeKey, handle);
   if(state.pendingSub){ const p=state.pendingSub; state.pendingSub=null; setSubtitle(p.file, p.handle); }
@@ -2152,10 +2194,11 @@ $('#subStyleReset').addEventListener('click', ()=>{
 
 /* ================= Cài đặt AI (chain provider + fallback) ================= */
 const escAttr=s=>String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-function aiSyncUI(){ aiRenderChain(); $('#aiContextSel').value=state.ai.context; $('#aiLang').value=state.ai.lang; }
+function aiSyncUI(){ aiRenderChain(); $('#aiContextSel').value=state.ai.context; $('#aiLang').value=state.ai.lang; $('#aiPrefetchChk').checked=state.ai.prefetch!==false; }
 function aiCollect(){
   state.ai.context=$('#aiContextSel').value;
   state.ai.lang=$('#aiLang').value.trim()||'Tiếng Việt';
+  state.ai.prefetch=$('#aiPrefetchChk').checked;
   aiSave();
 }
 function aiSave(){ try{ localStorage.setItem('op:ai', JSON.stringify({chain:state.ai.chain, context:state.ai.context, lang:state.ai.lang})); }catch{} }
@@ -2213,7 +2256,7 @@ function aiRenderChain(){
 $('#aiAddBtn').addEventListener('click', ()=>{
   const ps=AI_PRESETS.find(x=>x.id===$('#aiAddSel').value)||AI_PRESETS[6];
   const n=state.ai.chain.filter(p=>p.name.includes(ps.name)).length;
-  const mdProv={nim:'nvidia',deepseek:'deepseek',openrouter:'openrouter',openai:'openai',zen:'',gemini:'google',custom:''}[ps.id]||'';
+  const mdProv={nim:'nvidia',deepseek:'deepseek',openrouter:'openrouter',openai:'openai',zen:'opencode',go:'opencode-go',gemini:'google',custom:''}[ps.id]||'';
   state.ai.chain.push({id:ps.id+'-'+Date.now(), name:ps.name+(n?' '+n:''), type:ps.type, base:ps.base, key:'', model:ps.model, on:true, mdProv});
   aiSave(); aiRenderChain();
 });
