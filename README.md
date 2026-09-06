@@ -26,7 +26,7 @@ python3 -m http.server 8080
 2. Bấm **Phụ đề** (hoặc kéo–thả file `.srt` / `.vtt`)
 3. Học:
    - **Transcript** bên phải: click câu để nhảy, câu đang phát tự highlight + tự cuộn
-   - **Tìm kiếm** trong phụ đề, Enter để nhảy tới kết quả tiếp theo
+   - **Tìm kiếm** trong phụ đề: highlight vàng + đếm kết quả, `Enter` nhảy tới match kế, `Shift+Enter` lùi lại, `Esc` xoá; nút **Aa** trong ô tìm kiếm bật phân biệt hoa/thường (mặc định không phân biệt)
    - **⟳** trên 1 dòng = lặp câu đó; **⟳ trên 2 dòng** = lặp đoạn A→B (xem vùng lặp trên progress bar)
    - Nút **Tự dừng mỗi câu** (phím `P`): player tự pause khi hết câu — bấm Space để nghe lại / sang câu mới
    - **Phụ đề 2** (trong transcript): thêm bản dịch song song — 2 dòng trong transcript + 2 lớp trên video, ghép tự động theo thời gian; nút ẩn/hiện hoặc gỡ bỏ
