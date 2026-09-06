@@ -36,8 +36,6 @@ svg{display:block}
 .brand{display:flex; align-items:center; gap:8px; font-weight:700; letter-spacing:.2px; white-space:nowrap}
 .brand .logo{width:26px;height:26px;border-radius:7px;background:var(--acc);display:grid;place-items:center;flex:none}
 .brand .logo svg{width:14px;height:14px;fill:#fff;margin-left:2px}
-.brand small{color:var(--tx2);font-weight:400;display:none}
-@media (min-width:900px){ .brand small{display:inline} }
 .filechip{flex:1; min-width:0; text-align:center; color:var(--tx2); font-size:12.5px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 4px}
 .top-actions{display:flex; gap:6px; align-items:center; flex:none}
@@ -339,7 +337,7 @@ kbd{
 <header class="topbar">
   <div class="brand">
     <span class="logo"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
-    Omni&nbsp;Player <small>· luyện tiếng Anh</small>
+    Omni&nbsp;Player
   </div>
   <div class="filechip" id="fileChip"></div>
   <div class="top-actions">
