@@ -355,7 +355,7 @@ svg{display:block}
 .mp-item b{display:block; font-size:13px; word-break:break-all}
 .mp-item span{display:block; font-size:11.5px; color:var(--tx2)}
 
-/* ===== Tra từ + sổ từ vựng ===== */
+/* ===== Tra từ (double-click trong transcript) ===== */
 #wordPopup{
   position:fixed; z-index:300; width:262px; max-width:calc(100vw - 16px);
   background:#1d1d1d; border:1px solid #4d4d4d; border-radius:12px;
@@ -374,27 +374,7 @@ svg{display:block}
 .wp-def .pos{color:var(--acc2); font-style:italic; font-size:12px}
 .wp-def .ex{color:#999; font-size:12px; font-style:italic}
 .wp-load{display:flex; align-items:center; gap:8px; color:var(--tx2); padding:4px 0}
-.wp-actions{display:flex; gap:6px; margin-top:8px}
-.wp-actions button{padding:5px 10px; border-radius:7px; background:var(--bg3); color:var(--tx); font-size:12.5px; min-height:28px}
-.wp-actions button:hover{background:#333}
-.wp-actions .save{background:rgba(240,64,64,.16); color:var(--acc2); font-weight:600}
-.wp-actions .save:hover{background:rgba(240,64,64,.28)}
 .wp-err{color:#ff8a80; font-size:12.5px; line-height:1.4}
-#vocabList{display:flex; flex-direction:column; gap:8px}
-.vrow{display:flex; gap:10px; border:1px solid #3d3d3d; border-radius:10px; padding:8px 10px; background:#1d1d1d}
-.v-main{flex:1; min-width:0}
-.v-word{font-size:14.5px; font-weight:700; color:#fff}
-.v-ipa{color:#8fb4ff; font-size:12px; margin-left:6px}
-.v-vi{color:#7ddb7d; font-size:13px; margin:3px 0}
-.v-def{color:#ccc; font-size:12.5px; line-height:1.4}
-.v-src{color:#888; font-size:11.5px; margin-top:4px}
-.v-src button{color:var(--acc2); font-size:11.5px}
-.v-src button:hover{text-decoration:underline}
-.v-r{display:flex; flex-direction:column; gap:4px; flex:none}
-.v-r button{width:28px; height:28px; border-radius:6px; display:grid; place-items:center; color:#bbb}
-.v-r button:hover{background:#ffffff14; color:#fff}
-.v-r button svg{width:13px; height:13px; fill:currentColor}
-.v-empty{color:var(--tx2); font-size:13px; text-align:center; padding:16px 0}
 .cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px}
 /* màn cảm ứng không có hover -> hàng nút luôn hiện dưới cue */
 @media (hover:none) and (pointer:coarse){
@@ -524,9 +504,6 @@ kbd{
     <button class="tb" id="btnOpenSub" title="Mở file phụ đề .srt / .vtt">
       <svg viewBox="0 0 24 24"><path fill="currentColor" d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM5.5 12.5h5v1.8h-5v-1.8zm13 4.3h-13v-1.8h13v1.8zm0-2.5h-6v-1.8h6v1.8z"/></svg>
       <span>Phụ đề</span>
-    </button>
-    <button class="tb icon" id="btnVocab" title="Sổ từ vựng (double-click vào từ trong transcript để tra)">
-      <svg viewBox="0 0 24 24"><path fill="currentColor" d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>
     </button>
     <button class="tb icon" id="btnSettings" title="Cài đặt (bước tua, nhảy tới, bảng mã)">
       <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 .1-1 7.6 7.6 0 0 0-.1-1l2.1-1.7a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.7 7.7 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4L9 5.1a7.7 7.7 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.5 11a7.6 7.6 0 0 0 0 2l-2.2 1.7a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1a7.7 7.7 0 0 0 1.7 1l.4 2.6c0 .3.2.4.5.4h4c.2 0 .4-.1.5-.4l.4-2.6a7.7 7.7 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.6A3.6 3.6 0 1 1 15.6 12 3.6 3.6 0 0 1 12 15.6z"/></svg>
@@ -828,11 +805,6 @@ kbd{
 </dialog>
 
 <div id="wordPopup" hidden></div>
-
-<dialog id="vocabDlg">
-  <div class="dlg-head"><h2>📖 Sổ từ vựng <span id="vCount" style="color:#999; font-weight:400; font-size:13px"></span></h2><span class="ai-head-r"><button class="preset" id="vExport" title="Export CSV cho Anki">Export CSV</button><button id="vClose"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button></span></div>
-  <div class="dlg-body"><div id="vocabList"></div></div>
-</dialog>
 
 <dialog id="modelDlg">
   <div class="dlg-head"><h2>Chọn model <span id="mpProv" style="color:#999; font-weight:400; font-size:13px"></span></h2><button id="mpClose"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button></div>
@@ -1255,11 +1227,8 @@ $('#btnSub2').addEventListener('click', ()=>{
 $('#btnSub2Clear').addEventListener('click', clearSub2);
 $('#fileSub2').addEventListener('change', e=>{ loadSub2(e.target.files[0]); e.target.value=''; });
 
-/* ================= Tra từ + Sổ từ vựng ================= */
-const VOCAB_KEY='op:vocab:v1';
+/* ================= Tra từ (double-click trong transcript) ================= */
 const wordCache=new Map();
-function vocabGet(){ try{ return JSON.parse(localStorage.getItem(VOCAB_KEY)||'[]'); }catch{ return []; } }
-function vocabSave(l){ try{ localStorage.setItem(VOCAB_KEY, JSON.stringify(l.slice(0,500))); }catch{} }
 function speakEn(text){
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.85; speechSynthesis.speak(u); }catch{}
 }
@@ -1325,19 +1294,9 @@ async function showWordPopup(rawWord, anchor, cueIdx){
   html+= vi? '<div class="wp-vi">🇻🇳 '+escHtml(vi)+'</div>' : '';
   if(defs.length) html+=defs.map(d=>'<div class="wp-def"><span class="pos">'+escHtml(d.pos||'')+'</span> — '+escHtml(d.def)+(d.ex?'<div class="ex">“'+escHtml(d.ex)+'”</div>':'')+'</div>').join('');
   if(!vi && !defs.length) html+='<div class="wp-err">Không tra được từ này (mạng hoặc từ không tồn tại).</div>';
-  html+='<div class="wp-actions"><button class="save">＋ Lưu vào sổ từ</button></div>';
   wp.innerHTML=html;
   $('#wpSpeak').addEventListener('click', ()=>speakEn(word));
   $('#wpClose').addEventListener('click', ()=>{ wp.hidden=true; });
-  wp.querySelector('.save').addEventListener('click', ()=>{
-    const list=vocabGet();
-    const entry={word, ipa:dic.ipa, vi, defs:defs.slice(0,2), file:state.videoFile?.name||'', fk:state.resumeKey||'', t:(wpCueIdx!=null && state.cues[wpCueIdx])?state.cues[wpCueIdx].start:null, at:Date.now()};
-    const i=list.findIndex(x=>x.word===word);
-    if(i>=0) list[i]=entry; else list.unshift(entry);
-    vocabSave(list);
-    toast('Đã lưu "'+word+'" vào sổ từ ('+list.length+' từ)');
-    wp.hidden=true;
-  });
 }
 /* double-click vào từ trong transcript để tra */
 list.addEventListener('dblclick', e=>{
@@ -1359,46 +1318,6 @@ list.addEventListener('dblclick', e=>{
   if(!word || word.length>40) return;
   const anchor=(e.target.closest('.cue-text')||row).getBoundingClientRect();
   showWordPopup(word, anchor, +row.dataset.i);
-});
-$('#btnVocab').addEventListener('click', openVocabDlg);
-function openVocabDlg(){
-  const list=vocabGet();
-  $('#vCount').textContent='· '+list.length+' từ';
-  const box=$('#vocabList'); box.innerHTML='';
-  if(!list.length){ box.innerHTML='<div class="v-empty">Chưa có từ nào.<br>Double-click vào một từ trong transcript để tra và lưu.</div>'; }
-  for(const v of list){
-    const row=document.createElement('div');
-    row.className='vrow';
-    row.innerHTML='<div class="v-main"><div><span class="v-word">'+escHtml(v.word)+'</span>'+(v.ipa?'<span class="v-ipa">'+escHtml(v.ipa)+'</span>':'')+'</div>'+
-      (v.vi?'<div class="v-vi">🇻🇳 '+escHtml(v.vi)+'</div>':'')+
-      (v.defs||[]).map(d=>'<div class="v-def"><span class="pos">'+escHtml(d.pos||'')+'</span> — '+escHtml(d.def)+'</div>').join('')+
-      ((v.file||v.t!=null)?'<div class="v-src">📎 '+escHtml(v.file||'')+(v.t!=null?' · <button data-t="'+v.t+'" data-fk="'+escAttr(v.fk)+'">'+fmt(v.t)+'</button>':'')+'</div>':'')+
-      '</div>'+
-      '<div class="v-r"><button class="v-speak" title="Đọc từ"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg></button>'+
-      '<button class="v-del" title="Xoá"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button></div>';
-    row.querySelector('.v-speak').addEventListener('click', ()=>speakEn(v.word));
-    row.querySelector('.v-del').addEventListener('click', ()=>{ vocabSave(vocabGet().filter(x=>x.word!==v.word)); openVocabDlg(); });
-    const jump=row.querySelector('[data-t]');
-    if(jump) jump.addEventListener('click', ()=>{
-      if(state.resumeKey!==v.fk || !state.videoFile){ toast('Mở lại video "'+ (v.file||'') +'" rồi bấm nhảy.'); return; }
-      seekTo(+jump.dataset.t); $('#vocabDlg').close();
-    });
-    box.appendChild(row);
-  }
-  $('#vocabDlg').showModal();
-}
-$('#vClose').addEventListener('click', ()=>$('#vocabDlg').close());
-$('#vocabDlg').addEventListener('click', e=>{ if(e.target===e.currentTarget) e.currentTarget.close(); });
-$('#vExport').addEventListener('click', ()=>{
-  const list=vocabGet(); if(!list.length){ toast('Sổ từ trống.'); return; }
-  const rows=[['word','ipa','nghia_tieng_viet','dinh_nghia_en','vi_du','nguon_video','thoi_diem']];
-  for(const v of list) rows.push([v.word, v.ipa||'', v.vi||'', (v.defs||[]).map(d=>(d.pos?d.pos+': ':'')+d.def).join(' | '), (v.defs||[]).map(d=>d.ex).filter(Boolean).join(' | '), v.file||'', v.t!=null?fmt(v.t):'']);
-  const csv='\ufeff'+rows.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download='omni-vocab.csv'; a.click();
-  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
-  toast('Đã export '+list.length+' từ (CSV — import được vào Anki)');
 });
 
 /* ================= AI — phân tích câu thoại ================= */
