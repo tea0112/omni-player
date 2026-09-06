@@ -88,7 +88,7 @@ svg{display:block}
 .ccb{width:56px; height:56px; border-radius:50%; background:rgba(10,10,10,.55); display:grid; place-items:center; position:relative}
 .ccb svg{width:24px; height:24px; fill:#fff}
 .ccb span{position:absolute; bottom:-19px; left:50%; transform:translateX(-50%); font-size:11px; font-weight:600; color:#fff; text-shadow:0 1px 2px #000; white-space:nowrap}
-#ccPlay{width:76px; height:76px; background:rgba(10,10,10,.62); border:2px solid rgba(255,255,255,.25)}
+#ccPlay{width:76px; height:76px; border-radius:50%; background:rgba(10,10,10,.62); border:2px solid rgba(255,255,255,.25)}
 #ccPlay svg{width:34px; height:34px; fill:#fff; margin-left:0}
 #ccPlay:hover, .ccb:hover{background:rgba(25,25,25,.7)}
 @media (hover:none) and (pointer:coarse){
@@ -339,6 +339,7 @@ svg{display:block}
 .ai-on{display:flex; align-items:center; gap:6px; min-width:0; cursor:pointer}
 .ai-on input{accent-color:var(--acc)}
 .ai-pname{font-size:13px; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ai-warn{display:block; font-size:10.5px; color:#ffb74d; font-weight:400; white-space:normal}
 .ai-prof-btns{display:flex; gap:2px; flex:none}
 .ai-prof-btns button{width:26px; height:26px; border-radius:6px; color:#bbb; display:grid; place-items:center}
 .ai-prof-btns button:hover:not(:disabled){background:#ffffff14; color:#fff}
@@ -746,7 +747,7 @@ kbd{
         </label>
         <button class="preset" id="aiCacheClear" style="align-self:flex-end; min-height:40px" title="Xoá toàn bộ kết quả phân tích đã cache của video này">Xoá cache AI</button>
       </div>
-      <div class="hint" id="aiStatus">Key chỉ nằm trong máy bạn. Gemini dùng context caching — ngữ cảnh bơm 1 lần/h giờ. Provider OpenAI-compatible tận dụng automatic prompt caching.</div>
+      <div class="hint" id="aiStatus">Key chỉ nằm trong máy bạn. Gemini dùng context caching — ngữ cảnh bơm 1 lần/h giờ. Provider OpenAI-compatible tận dụng automatic prompt caching.<br>⚠ <b>NVIDIA NIM</b> chặn gọi trực tiếp từ browser (CORS) — muốn dùng model NVIDIA hãy thêm profile <b>OpenRouter</b> (model nvidia/... vẫn chạy bình thường).</div>
     </div>
     <div class="field">
       <label>Giao diện phụ đề trên video</label>
@@ -1322,7 +1323,7 @@ list.addEventListener('dblclick', e=>{
 
 /* ================= AI — phân tích câu thoại ================= */
 const AI_PRESETS=[
-  {id:'nim',        name:'NVIDIA NIM',      type:'openai', base:'https://integrate.api.nvidia.com/v1', model:'meta/llama-3.3-70b-instruct'},
+  {id:'nim',        name:'NVIDIA NIM',      type:'openai', base:'https://integrate.api.nvidia.com/v1', model:'meta/llama-3.3-70b-instruct', warn:'CORS — browser không gọi trực tiếp được'},
   {id:'deepseek',   name:'DeepSeek',        type:'openai', base:'https://api.deepseek.com/v1',         model:'deepseek-chat'},
   {id:'openrouter', name:'OpenRouter',      type:'openai', base:'https://openrouter.ai/api/v1',        model:'google/gemini-2.0-flash-001'},
   {id:'openai',     name:'OpenAI',          type:'openai', base:'https://api.openai.com/v1',           model:'gpt-4o-mini'},
@@ -1529,9 +1530,15 @@ async function aiCallOpenAIP(p, cue, idx, signal){
     {role:'user', content:q}];
   const headers={'Content-Type':'application/json','Authorization':'Bearer '+p.key};
   if(/openrouter\.ai/i.test(p.base)){ headers['HTTP-Referer']=location.origin; headers['X-Title']='Omni Player'; }
-  const res=await fetch(p.base.replace(/\/+$/,'')+'/chat/completions',{
-    method:'POST', headers, signal,
-    body:JSON.stringify({model:p.model, messages, temperature:0.4, max_tokens:3000})});
+  let res;
+  try{
+    res=await fetch(p.base.replace(/\/+$/,'')+'/chat/completions',{
+      method:'POST', headers, signal,
+      body:JSON.stringify({model:p.model, messages, temperature:0.4, max_tokens:3000})});
+  }catch(err){
+    if(err.name==='AbortError') throw err;
+    throw new Error('mạng chặn hoặc provider không hỗ trợ gọi từ browser (CORS) — '+err.message);
+  }
   if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('HTTP '+res.status+': '+e.slice(0,160)); }
   const j=await res.json();
   return {text:j.choices?.[0]?.message?.content||''};
@@ -2373,6 +2380,11 @@ function aiRenderChain(){
       '<div class="ai-mrow"><input class="ai-pf" data-k="model" placeholder="Model" value="'+escAttr(p.model||'')+'">'+
       '<button class="ai-mf" data-act="models" title="Chọn model từ danh sách models.dev">🔍</button></div>';
     card.querySelector('.ai-pname').textContent=p.name+(p.type==='gemini'?' (context caching)':'');
+    if(p.warn){
+      const w=document.createElement('span');
+      w.className='ai-warn'; w.textContent='⚠ '+p.warn;
+      card.querySelector('.ai-on').appendChild(w);
+    }
     card.querySelectorAll('[data-k]').forEach(inp=>{
       inp.addEventListener('change', ()=>{
         const k=inp.dataset.k;
