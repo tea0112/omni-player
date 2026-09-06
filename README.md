@@ -29,6 +29,7 @@ python3 -m http.server 8080
    - **Tìm kiếm** trong phụ đề, Enter để nhảy tới kết quả tiếp theo
    - **⟳** trên 1 dòng = lặp câu đó; **⟳ trên 2 dòng** = lặp đoạn A→B (xem vùng lặp trên progress bar)
    - Nút **Tự dừng mỗi câu** (phím `P`): player tự pause khi hết câu — bấm Space để nghe lại / sang câu mới
+   - **Phụ đề 2** (trong transcript): thêm bản dịch song song — 2 dòng trong transcript + 2 lớp trên video, ghép tự động theo thời gian; nút ẩn/hiện hoặc gỡ bỏ
    - **⚙ Cài đặt**: đổi bước tua (mặc định 5s), nhảy tới thời điểm, đổi bảng mã phụ đề khi tiếng Việt lỗi font
 
 ### Phím tắt

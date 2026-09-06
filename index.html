@@ -67,6 +67,7 @@ svg{display:block}
 }
 .video-wrap.controls-hidden #subOverlay{bottom:6%}
 #subOverlay[hidden]{display:none}
+#subOverlay .sub2{display:block; font-size:.72em; color:#a8c6ff; margin-top:3px; font-weight:400}
 
 /* tap surface & big play */
 #surface{position:absolute; inset:0; z-index:3; touch-action:manipulation; cursor:default}
@@ -268,6 +269,8 @@ svg{display:block}
 .cue-loop:hover{background:#ffffff1a}
 .cue-loop svg{width:14px;height:14px;fill:currentColor}
 .cue-text mark{background:#f5c400; color:#111; border-radius:3px; padding:0 1px}
+.cue-sub2{font-size:12.5px; color:#8fb4ff; margin-top:3px; font-weight:400; white-space:pre-line}
+.cue.active .cue-sub2{color:#a8c6ff}
 .tp-empty{padding:36px 20px; text-align:center; color:var(--tx2); font-size:13.5px}
 .tp-empty b{color:var(--tx)}
 
@@ -376,6 +379,7 @@ kbd{
 
 <input type="file" id="fileVideo" accept="video/*,.mp4,.webm,.mkv,.m4v,.mov,.avi,.ts,.3gp,.ogv" hidden>
 <input type="file" id="fileSub" accept=".srt,.vtt" hidden>
+<input type="file" id="fileSub2" accept=".srt,.vtt" hidden>
 
 <main id="layout">
   <section id="playerShell">
@@ -500,6 +504,14 @@ kbd{
           <svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg>
           Bỏ lặp
         </button>
+        <button class="tgl" id="btnSub2" title="Thêm phụ đề thứ 2 (bản dịch)">
+          <svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1zm7 0h-1.5v-.5h-2v3h2V13H18v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1z"/></svg>
+          Phụ đề 2
+        </button>
+        <button class="tgl" id="btnSub2Clear" hidden title="Gỡ phụ đề thứ 2">
+          <svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg>
+          Gỡ phụ đề 2
+        </button>
         <button class="tgl" id="btnClosePanel" title="Đóng transcript">
           <svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg>
           Đóng
@@ -602,6 +614,7 @@ const state = {
   seekStep:5, subsVisible:true, autoScroll:true,
   matches:[], matchPos:-1,
   resumeKey:null, hasVHandle:false, hasSHandle:false, subMeta:null, pendingSub:null,
+  sub2File:null, sub2Buffer:null, cues2:[], pairs2:null, sub2Visible:true, sub2Meta:null, hasS2Handle:false, pendingSub2:null,
 };
 
 /* ================= Settings (toàn cục) ================= */
@@ -610,6 +623,7 @@ function saveSettings(){
   try{ localStorage.setItem(SET_KEY, JSON.stringify({
     seekStep:state.seekStep, autoPause:state.autoPause, subsVisible:state.subsVisible,
     autoScroll:state.autoScroll, volume:video.volume, muted:video.muted, rate:video.playbackRate,
+    sub2Visible:state.sub2Visible,
   })); }catch{}
 }
 function loadSettings(){
@@ -617,6 +631,7 @@ function loadSettings(){
   if(!s) return;
   if(typeof s.seekStep==='number' && s.seekStep>=1 && s.seekStep<=600) state.seekStep=s.seekStep;
   state.autoPause=!!s.autoPause; state.subsVisible=s.subsVisible!==false; state.autoScroll=s.autoScroll!==false;
+  state.sub2Visible=s.sub2Visible!==false;
   if(typeof s.volume==='number') video.volume=clamp(s.volume,0,1);
   video.muted=!!s.muted;
   if(typeof s.rate==='number') video.playbackRate=clamp(s.rate,0.25,4);
@@ -683,29 +698,31 @@ function decodeText(buf, enc){
 const VI_RE=/[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/gi;
 const viScore=t=>(t.match(VI_RE)||[]).length;
 const mojiScore=t=>(t.match(/Ã.|Â.|â€.|á»|áº/g)||[]).length;
-function applyEncoding(enc, opts={}){
-  if(!state.subBuffer) return;
-  let useEnc=enc, text=decodeText(state.subBuffer, enc);
+function decodeCues(buffer, enc, opts={}){
+  let useEnc=enc, text=decodeText(buffer, enc);
   if(opts.auto && mojiScore(text)>=4 && viScore(text)<4){
     let best={enc, score:viScore(text)};
     for(const cand of ['windows-1258','windows-1252']){
-      const t2=decodeText(state.subBuffer, cand), sc=viScore(t2);
+      const t2=decodeText(buffer, cand), sc=viScore(t2);
       if(sc>best.score*2 && sc>10) best={enc:cand, score:sc};
     }
-    if(best.enc!==enc){ useEnc=best.enc; text=decodeText(state.subBuffer, useEnc); }
+    if(best.enc!==enc){ useEnc=best.enc; text=decodeText(buffer, useEnc); }
   }
-  const cues=parseSubtitles(text);
+  return {cues:parseSubtitles(text), useEnc};
+}
+function applyEncoding(enc, opts={}){
+  if(!state.subBuffer) return false;
+  const {cues, useEnc}=decodeCues(state.subBuffer, enc, opts);
   if(!cues.length){ toast('Không tìm thấy cue nào trong file phụ đề.'); return false; }
+  const switched=opts.auto && useEnc!==enc;
   state.encoding=useEnc; state.cues=cues;
+  if(state.sub2File && state.cues2.length) state.pairs2=pairCues(state.cues, state.cues2);
   if(state.loop) setLoop(null);
   buildVttTrack(); renderTranscript();
   encSelect.value=useEnc;
-  if(opts.auto && useEnc!==enc){
-    toast('Phụ đề dùng bảng mã cũ — đã chuyển sang '+useEnc.toUpperCase()+'. Sai font? Đổi trong ⚙ Cài đặt.');
-    return true;
-  }
-  if(!opts.auto) toast('Đã nạp lại phụ đề ('+useEnc.toUpperCase()+', '+cues.length+' câu).');
-  return false;
+  if(switched) toast('Phụ đề dùng bảng mã cũ — đã chuyển sang '+useEnc.toUpperCase()+'. Sai font? Đổi trong ⚙ Cài đặt.');
+  else if(!opts.auto) toast('Đã nạp lại phụ đề ('+useEnc.toUpperCase()+', '+cues.length+' câu).');
+  return switched;
 }
 
 /* ================= Native track (PiP / fullscreen iPhone) ================= */
@@ -718,7 +735,10 @@ function buildVttTrack(){
   const old=video.querySelector('track'); if(old) old.remove();
   if(state.trackUrl) URL.revokeObjectURL(state.trackUrl);
   if(!state.cues.length) return;
-  const vtt='WEBVTT\n\n'+state.cues.map((c,i)=>(i+1)+'\n'+vttTs(c.start)+' --> '+vttTs(c.end)+'\n'+c.text).join('\n\n')+'\n';
+  const vtt='WEBVTT\n\n'+state.cues.map((c,i)=>{
+    const p=(state.pairs2 && state.sub2Visible)? state.pairs2[i] : null;
+    return (i+1)+'\n'+vttTs(c.start)+' --> '+vttTs(c.end)+'\n'+c.text+(p?'\n'+p.text:'');
+  }).join('\n\n')+'\n';
   state.trackUrl=URL.createObjectURL(new Blob([vtt],{type:'text/vtt'}));
   const tr=document.createElement('track');
   tr.kind='subtitles'; tr.label='Phụ đề'; tr.src=state.trackUrl;
@@ -740,6 +760,10 @@ video.addEventListener('webkitendfullscreen', syncNativeSubs);
 
 /* ================= Transcript render ================= */
 let rows=[], lastOverlayKey=null;
+function sub2Html(i){
+  const p=(state.sub2Visible && state.pairs2)? state.pairs2[i] : null;
+  return p?'<div class="cue-sub2">'+p.html+'</div>':'';
+}
 function renderTranscript(){
   list.innerHTML=''; rows=[]; state.activeRow=-1; lastOverlayKey=null;
   const cues=state.cues;
@@ -753,7 +777,7 @@ function renderTranscript(){
     row.innerHTML='<button class="cue-loop" title="Lặp câu / chọn đoạn A–B">'+
       '<svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>'+
       '<span class="cue-time">'+fmt(c.start)+'</span>'+
-      '<div class="cue-text">'+c.html+'</div>';
+      '<div class="cue-text">'+c.html+sub2Html(i)+'</div>';
     frag.appendChild(row); rows.push(row);
   }
   list.appendChild(frag);
@@ -813,7 +837,7 @@ function applySearch(){
     const hit=q && state.cues[i].text.toLowerCase().includes(q);
     row.classList.toggle('hit', !!q && !hit);
     row.classList.toggle('match', !!hit);
-    row.querySelector('.cue-text').innerHTML = hit ? highlightHtml(state.cues[i], q) : state.cues[i].html;
+    row.querySelector('.cue-text').innerHTML = (hit ? highlightHtml(state.cues[i], q) : state.cues[i].html) + sub2Html(i);
     if(hit) state.matches.push(i);
   }
   searchCount.textContent=q ? state.matches.length+' kết quả' : '';
@@ -835,6 +859,69 @@ function jumpMatch(dir){
   searchCount.textContent=(state.matchPos+1)+'/'+state.matches.length;
 }
 searchClear.addEventListener('click', ()=>{ searchInput.value=''; applySearch(); searchInput.focus(); });
+
+/* ================= Phụ đề 2 (bản dịch) ================= */
+function pairCues(a, b){
+  /* ghép cue phụ đề 2 theo độ chồng lấn thời gian với cue chính (two-pointer) */
+  const pairs=new Array(a.length).fill(null);
+  let j=0;
+  for(let i=0;i<a.length;i++){
+    while(j<b.length && b[j].end<=a[i].start+0.001) j++;
+    let best=null, bestOv=0;
+    for(let k=j;k<b.length && b[k].start<a[i].end-0.001;k++){
+      const ov=Math.min(a[i].end,b[k].end)-Math.max(a[i].start,b[k].start);
+      if(ov>bestOv){ bestOv=ov; best=b[k]; }
+    }
+    pairs[i]=best;
+  }
+  return pairs;
+}
+async function loadSub2(file, handle){
+  if(!file) return;
+  const buf=await file.arrayBuffer();
+  const {cues, useEnc}=decodeCues(buf, 'utf-8', {auto:true});
+  if(!cues.length){ toast('Phụ đề 2: không đọc được cue nào.'); return; }
+  state.sub2File=file; state.sub2Buffer=buf; state.cues2=cues;
+  state.pairs2=state.cues.length? pairCues(state.cues, cues) : null;
+  state.sub2Visible=true; state.hasS2Handle=!!handle;
+  buildVttTrack(); renderTranscript(); updateSub2UI();
+  if(state.videoFile){
+    state.sub2Meta={name:file.name, size:file.size, lastModified:file.lastModified};
+    if(handle) idbSet('s2:'+state.resumeKey, handle);
+    historyUpsert({sub2:state.sub2Meta, hasS2Handle:!!handle});
+  } else state.pendingSub2={file, handle};
+  toast('Phụ đề 2: '+file.name+' ('+cues.length+' câu, '+useEnc.toUpperCase()+')');
+}
+function clearSub2(){
+  state.sub2File=null; state.sub2Buffer=null; state.cues2=[]; state.pairs2=null;
+  state.sub2Meta=null; state.hasS2Handle=false;
+  buildVttTrack(); renderTranscript(); updateSub2UI();
+  if(state.videoFile){ idbSet('s2:'+state.resumeKey, null); historyUpsert({sub2:null, hasS2Handle:false}); }
+  toast('Đã gỡ phụ đề 2');
+}
+function updateSub2UI(){
+  const loaded=!!state.sub2File;
+  $('#btnSub2Clear').hidden=!loaded;
+  $('#btnSub2').classList.toggle('on', loaded && state.sub2Visible);
+}
+async function pickSub2(){
+  if(window.showOpenFilePicker){
+    try{
+      const [h]=await showOpenFilePicker({multiple:false});
+      const f=await h.getFile();
+      if(!/\.(srt|vtt)$/i.test(f.name)){ toast('Chỉ nhận file .srt hoặc .vtt'); return; }
+      loadSub2(f, h); return;
+    }catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  $('#fileSub2').click();
+}
+$('#btnSub2').addEventListener('click', ()=>{
+  if(!state.sub2File){ pickSub2(); return; }
+  state.sub2Visible=!state.sub2Visible;
+  updateSub2UI(); buildVttTrack(); renderTranscript(); saveSettings();
+});
+$('#btnSub2Clear').addEventListener('click', clearSub2);
+$('#fileSub2').addEventListener('change', e=>{ loadSub2(e.target.files[0]); e.target.value=''; });
 
 /* ================= Loop A–B ================= */
 function loopClick(i){
@@ -908,7 +995,12 @@ function tick(now){
   onActiveRowChange(di);
   const showSub = di>=0 && state.subsVisible && (t<=cues[di].end+0.3 || video.paused);
   if(showSub){
-    if(lastOverlayKey!==di){ overlay.innerHTML=cues[di].html; lastOverlayKey=di; }
+    const key=di+'|'+(state.sub2Visible?1:0);
+    if(lastOverlayKey!==key){
+      const p=(state.sub2Visible && state.pairs2)? state.pairs2[di] : null;
+      overlay.innerHTML=cues[di].html+(p?'<span class="sub2">'+p.html+'</span>':'');
+      lastOverlayKey=key;
+    }
     overlay.hidden=false;
   } else { overlay.hidden=true; lastOverlayKey=null; }
 
@@ -1152,7 +1244,8 @@ function setVideo(file, handle){
   state.hasVHandle=!!handle; state.hasSHandle=false;
   if(handle) idbSet('v:'+state.resumeKey, handle);
   if(state.pendingSub){ const p=state.pendingSub; state.pendingSub=null; setSubtitle(p.file, p.handle); }
-  historyUpsert({hasVHandle:!!handle, hasSHandle:false, sub:null});
+  if(state.pendingSub2){ const p2=state.pendingSub2; state.pendingSub2=null; loadSub2(p2.file, p2.handle); }
+  historyUpsert({hasVHandle:!!handle, hasSHandle:false, sub:null, sub2:state.sub2Meta||null, hasS2Handle:state.hasS2Handle});
   if(state.subHint && !handle){ const h=state.subHint; state.subHint=null; toast('Xem tiếp "'+h.name+'" — chọn lại phụ đề để đồng bộ.', {label:'Chọn phụ đề', fn:()=>pickSubtitle()}); } else state.subHint=null;
   video.src=state.videoUrl; video.load();
   setupMediaSession(file);
@@ -1299,7 +1392,7 @@ function renderHistory(){
       '<div class="hist-main"><div class="hist-name"></div>'+
       '<div class="hist-bar"><i style="width:'+pct+'%"></i></div>'+
       '<div class="hist-meta">'+fmt(e.t)+' / '+fmt(e.d)+' · '+pct+'% · '+fmtAgo(e.at)+
-      (e.sub?' · 📄 '+e.sub.name:'')+(e.hasVHandle?'':' · <span class="hist-nofh">chọn lại file khi bấm</span>')+'</div></div>'+
+      (e.sub?' · 📄 '+e.sub.name:'')+(e.sub2?' · 🈯 '+e.sub2.name:'')+(e.hasVHandle?'':' · <span class="hist-nofh">chọn lại file khi bấm</span>')+'</div></div>'+
       '<button class="hist-del" title="Xoá khỏi lịch sử"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button>';
     row.querySelector('.hist-name').textContent=e.name;
     row.querySelector('.hist-play').addEventListener('click', ()=>continueEntry(e));
@@ -1322,6 +1415,7 @@ async function continueEntry(e){
       if(perm==='granted'){
         setVideo(await handle.getFile(), handle);
         if(e.sub && e.hasSHandle){ const sh=await idbGet('s:'+e.key); if(sh){ try{ setSubtitle(await sh.getFile(), sh); }catch{} } }
+        if(e.sub2 && e.hasS2Handle){ const s2h=await idbGet('s2:'+e.key); if(s2h){ try{ loadSub2(await s2h.getFile(), s2h); }catch{} } }
         return;
       }
     }catch(err){ /* handle chết (file đổi chỗ) -> rơi xuống chọn lại */ }
