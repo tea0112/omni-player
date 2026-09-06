@@ -767,6 +767,7 @@ kbd{
           <input type="checkbox" id="aiPrefetchChk" checked style="accent-color:var(--acc); width:16px; height:16px">
           Tự tải trước phân tích câu kế tiếp (bấm ✨ có kết quả ngay)
         </label>
+        <button class="preset" id="aiCacheClear" style="align-self:flex-end; min-height:40px" title="Xoá toàn bộ kết quả phân tích đã cache của video này">Xoá cache AI</button>
       </div>
       <div class="hint" id="aiStatus">Key chỉ nằm trong máy bạn. Gemini dùng context caching — ngữ cảnh bơm 1 lần/h giờ. Provider OpenAI-compatible tận dụng automatic prompt caching.</div>
     </div>
@@ -1490,6 +1491,7 @@ function renderAiAcc(idx, data, via){
     ['context','6. Bối cảnh'],
   ];
   let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI'+(via?' <span style="color:#999;font-weight:400">· via '+escHtml(via)+'</span>':'')+'</span><span class="ai-head-r">'+
+    '<button class="ai-ref" title="Bỏ cache — gọi lại AI">'+(data.cached?'🔄':'🔄')+'</button>'+
     '<button class="ai-copy-btn" title="Copy toàn bộ">Copy</button>'+
     '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
   for(const [k,title] of secs){
@@ -1501,6 +1503,27 @@ function renderAiAcc(idx, data, via){
     if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(()=>toast('Đã copy toàn bộ phân tích'));
     else toast('Không copy được');
   });
+  div.querySelector('.ai-ref').addEventListener('click', ()=>aiRefresh(idx));
+}
+function aiCacheDelete(k){
+  if(state.aiCacheMap) state.aiCacheMap.delete(k);
+  try{
+    const store='op:ai:cache:'+(state.resumeKey||'f');
+    const o=JSON.parse(localStorage.getItem(store)||'{}');
+    delete o[k];
+    localStorage.setItem(store, JSON.stringify(o));
+  }catch{}
+}
+function aiRefresh(idx){
+  const cue=state.cues[idx]; if(!cue) return;
+  aiCacheDelete(aiCacheKey(cue));
+  toast('Đã bỏ cache — gọi lại AI…');
+  openAiAcc(idx);
+  const ctrl=new AbortController(); state.aiCtrl=ctrl;
+  aiRunAnalysis(idx, ctrl.signal)
+    .then(data=>{ renderAiAcc(idx, data, data.via); })
+    .catch(err=>{ if(err.name==='AbortError') return; renderAiAcc(idx, {error:err.message||'Lỗi không xác định'}); })
+    .finally(()=>{ if(state.aiCtrl===ctrl) state.aiCtrl=null; });
 }
 function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function stripLeadHeadings(md){ const L=String(md||'').split('\n'); while(L.length && /^\s*#{1,6}\s/.test(L[0])) L.shift(); return L.join('\n'); }
@@ -2507,6 +2530,12 @@ async function openModelPicker(p){
 }
 $('#mpClose').addEventListener('click', ()=>$('#modelDlg').close());
 $('#modelDlg').addEventListener('click', e=>{ if(e.target===e.currentTarget) $('#modelDlg').close(); });
+$('#aiCacheClear').addEventListener('click', ()=>{
+  let n=0;
+  for(const k of Object.keys(localStorage)){ if(k.startsWith('op:ai:cache:')){ localStorage.removeItem(k); n++; } }
+  if(state.aiCacheMap) state.aiCacheMap.clear();
+  toast('Đã xoá cache AI'+(n?' ('+n+' file)':''));
+});
 $('#aiTest').addEventListener('click', async ()=>{
   aiCollect();
   const chain=state.ai.chain.filter(p=>p.on);
