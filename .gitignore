@@ -1,0 +1,6 @@
+# test scaffolding — không đưa lên repo
+.test-media/
+
+# hệ thống
+.DS_Store
+Thumbs.db
