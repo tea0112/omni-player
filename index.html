@@ -58,16 +58,20 @@ svg{display:block}
 /* subtitle overlay */
 #subOverlay{
   position:absolute; left:50%; transform:translateX(-50%);
-  bottom:14%; z-index:2; pointer-events:none;
+  bottom:var(--sub-bottom,14%); z-index:2; pointer-events:none;
   max-width:92%; text-align:center; white-space:pre-line;
-  font-size:clamp(15px,2.3vw,24px); line-height:1.35; font-weight:500;
-  color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.7);
+  font-size:calc(clamp(15px,2.3vw,24px) * var(--sub-scale,1)); line-height:1.35; font-weight:500;
+  color:var(--sub-color,#fff); text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.7);
   background:rgba(8,8,8,.55); padding:4px 12px; border-radius:6px;
   transition:bottom .18s;
 }
-.video-wrap.controls-hidden #subOverlay{bottom:6%}
+#subOverlay[data-bg="none"]{background:none; padding:0}
+#subOverlay[data-bg="solid"]{background:rgba(0,0,0,.88)}
+#subOverlay[data-font="serif"]{font-family:Georgia,'Times New Roman',serif}
+#subOverlay[data-font="mono"]{font-family:ui-monospace,'Cascadia Mono',Consolas,monospace}
+.video-wrap.controls-hidden #subOverlay{bottom:calc(var(--sub-bottom,14%) - 8%)}
 #subOverlay[hidden]{display:none}
-#subOverlay .sub2{display:block; font-size:.72em; color:#a8c6ff; margin-top:3px; font-weight:400}
+#subOverlay .sub2{display:block; font-size:.72em; color:var(--sub-color2,#a8c6ff); margin-top:3px; font-weight:400}
 
 /* tap surface & big play */
 #surface{position:absolute; inset:0; z-index:3; touch-action:manipulation; cursor:default}
@@ -556,6 +560,42 @@ kbd{
       </div>
       <div class="hint">App tự phát hiện lỗi font và đề xuất bảng mã; chọn thủ công nếu cần.</div>
     </div>
+    <div class="field">
+      <label>Giao diện phụ đề trên video</label>
+      <div class="row">
+        <select id="subSizeSel" title="Kích cỡ">
+          <option value="0.8">Nhỏ</option>
+          <option value="1">Vừa</option>
+          <option value="1.25">Lớn</option>
+          <option value="1.5">Rất lớn</option>
+        </select>
+        <select id="subPosSel" title="Vị trí dọc">
+          <option value="6">Rất thấp</option>
+          <option value="10">Thấp</option>
+          <option value="14">Vừa</option>
+          <option value="24">Cao</option>
+          <option value="36">Rất cao</option>
+        </select>
+        <select id="subBgSel" title="Nền phụ đề">
+          <option value="none">Không nền</option>
+          <option value="dim">Nền mờ</option>
+          <option value="solid">Nền đậm</option>
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <select id="subColorSel" title="Màu chữ">
+          <option value="#ffffff">Chữ trắng</option>
+          <option value="#ffec3d">Chữ vàng</option>
+          <option value="#7ecbff">Chữ xanh</option>
+        </select>
+        <select id="subFontSel" title="Kiểu chữ">
+          <option value="default">Font chuẩn</option>
+          <option value="serif">Font Serif</option>
+          <option value="mono">Font Monospace</option>
+        </select>
+        <button class="preset" id="subStyleReset">Mặc định</button>
+      </div>
+    </div>
   </div>
 </dialog>
 
@@ -620,6 +660,7 @@ const state = {
   matches:[], matchPos:-1,
   resumeKey:null, hasVHandle:false, hasSHandle:false, subMeta:null, pendingSub:null,
   sub2File:null, sub2Buffer:null, cues2:[], pairs2:null, sub2Visible:true, sub2Meta:null, hasS2Handle:false, pendingSub2:null,
+  subStyle:{scale:1, pos:14, bg:'dim', color:'#ffffff', font:'default'},
 };
 
 /* ================= Settings (toàn cục) ================= */
@@ -629,6 +670,7 @@ function saveSettings(){
     seekStep:state.seekStep, autoPause:state.autoPause, subsVisible:state.subsVisible,
     autoScroll:state.autoScroll, volume:video.volume, muted:video.muted, rate:video.playbackRate,
     sub2Visible:state.sub2Visible, caseSensitive:state.caseSensitive,
+    subStyle:state.subStyle,
   })); }catch{}
 }
 function loadSettings(){
@@ -637,6 +679,7 @@ function loadSettings(){
   if(typeof s.seekStep==='number' && s.seekStep>=1 && s.seekStep<=600) state.seekStep=s.seekStep;
   state.autoPause=!!s.autoPause; state.subsVisible=s.subsVisible!==false; state.autoScroll=s.autoScroll!==false;
   state.sub2Visible=s.sub2Visible!==false; state.caseSensitive=!!s.caseSensitive;
+  if(s.subStyle && typeof s.subStyle==='object') state.subStyle={...state.subStyle, ...s.subStyle};
   if(typeof s.volume==='number') video.volume=clamp(s.volume,0,1);
   video.muted=!!s.muted;
   if(typeof s.rate==='number') video.playbackRate=clamp(s.rate,0.25,4);
@@ -1118,6 +1161,27 @@ function showControls(auto=true){
 function hideControlsNow(){ clearTimeout(hideTimer); wrap.classList.add('controls-hidden'); }
 wrap.addEventListener('pointermove', ()=>{ if(!isCoarse) showControls(); });
 
+/* Cuộn chuột trên vùng video = chỉnh âm lượng */
+let volHudTimer=null;
+wrap.addEventListener('wheel', e=>{
+  if(!state.videoFile) return;
+  e.preventDefault();
+  video.muted=false;
+  video.volume=clamp(video.volume + (e.deltaY<0?0.05:-0.05), 0, 1);
+  showControls();
+  let hud=document.getElementById('volHud');
+  if(!hud){
+    hud=document.createElement('div'); hud.id='volHud';
+    hud.style.cssText='position:absolute;z-index:8;left:50%;top:16%;transform:translateX(-50%);background:rgba(15,15,15,.88);border:1px solid #3a3a3a;border-radius:999px;padding:8px 16px;font-size:13.5px;display:flex;align-items:center;gap:8px;pointer-events:none;transition:opacity .3s';
+    wrap.appendChild(hud);
+  }
+  const pct=Math.round(video.volume*100);
+  hud.innerHTML='<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#fff"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg> Âm lượng '+pct+'%';
+  hud.style.opacity='1';
+  clearTimeout(volHudTimer);
+  volHudTimer=setTimeout(()=>{ if(hud) hud.style.opacity='0'; }, 900);
+}, {passive:false});
+
 /* nút */
 $('#btnPlay').addEventListener('click', togglePlay);
 bigPlay.addEventListener('click', togglePlay);
@@ -1551,6 +1615,7 @@ $('#btnSettings').addEventListener('click', ()=>{
   stepInput.value=state.seekStep;
   [...stepPresets.children].forEach(b=>b.classList.toggle('on', +b.dataset.v===state.seekStep));
   encSelect.value=state.encoding;
+  syncSubStyleUI();
   settingsDialog.showModal();
 });
 $('#setClose').addEventListener('click', ()=>settingsDialog.close());
@@ -1583,6 +1648,35 @@ $('#jumpBtn').addEventListener('click', ()=>{
 jumpInput.addEventListener('keydown', e=>{ if(e.key==='Enter') $('#jumpBtn').click(); });
 $('#encApply').addEventListener('click', ()=>{ applyEncoding(encSelect.value,{auto:false}); });
 
+/* ================= Giao diện phụ đề ================= */
+const SUB_DEFAULTS={scale:1, pos:14, bg:'dim', color:'#ffffff', font:'default'};
+const subStyleEls=()=>({scale:$('#subSizeSel'), pos:$('#subPosSel'), bg:$('#subBgSel'), color:$('#subColorSel'), font:$('#subFontSel')});
+function applySubStyle(){
+  const s=state.subStyle;
+  overlay.style.setProperty('--sub-scale', s.scale);
+  overlay.style.setProperty('--sub-bottom', s.pos+'%');
+  overlay.style.setProperty('--sub-color', s.color);
+  overlay.style.setProperty('--sub-color2', s.color===SUB_DEFAULTS.color ? '#a8c6ff' : s.color);
+  overlay.dataset.bg=s.bg; overlay.dataset.font=s.font;
+}
+function syncSubStyleUI(){
+  const el=subStyleEls();
+  el.scale.value=String(state.subStyle.scale);
+  el.pos.value=String(state.subStyle.pos);
+  el.bg.value=state.subStyle.bg; el.color.value=state.subStyle.color; el.font.value=state.subStyle.font;
+}
+for(const [k,el] of Object.entries(subStyleEls())){
+  el.addEventListener('change', ()=>{
+    state.subStyle[k] = (k==='scale'||k==='pos') ? (+el.value||1) : el.value;
+    applySubStyle(); saveSettings();
+  });
+}
+$('#subStyleReset').addEventListener('click', ()=>{
+  state.subStyle={...SUB_DEFAULTS};
+  applySubStyle(); syncSubStyleUI(); saveSettings();
+  toast('Đã đặt lại giao diện phụ đề về mặc định');
+});
+
 /* ================= Viewport / xoay máy ================= */
 function updateAppHeight(){
   const h=window.visualViewport?Math.round(window.visualViewport.height):window.innerHeight;
@@ -1605,6 +1699,7 @@ $('#btnFwd').title='Tua tới '+state.seekStep+'s (→ / L)';
 if(isIOS) document.body.classList.add('ios');
 updateAppHeight();
 renderHistory();
+applySubStyle();
 </script>
 </body>
 </html>
