@@ -1047,20 +1047,35 @@ list.addEventListener('click', e=>{
     if(state.autoScroll) scrollRowIntoView(i);
   }
 });
+/* Copy chống iOS/WebKit: execCommand phải chạy ĐỒNG BỘ trong cú click — thử trước;
+   iOS bỏ qua select() trên textarea readonly nên phải contentEditable + setSelectionRange */
+function legacyCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text;
+  ta.setAttribute('readonly','');
+  ta.style.cssText='position:fixed; top:0; left:-9999px';
+  document.body.appendChild(ta);
+  ta.contentEditable=true; ta.readOnly=false;
+  const sel=document.getSelection();
+  const saved=sel.rangeCount? sel.getRangeAt(0):null;
+  ta.select();
+  try{ ta.setSelectionRange(0, text.length); }catch{}
+  let ok=false;
+  try{ ok=document.execCommand('copy'); }catch{}
+  document.body.removeChild(ta);
+  if(saved){ sel.removeAllRanges(); try{ sel.addRange(saved); }catch{} }
+  return ok;
+}
+function copyText(text, okMsg){
+  if(legacyCopy(text)){ toast(okMsg); return; }
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(()=>toast(okMsg)).catch(()=>toast('Không copy được — trình duyệt chặn clipboard'));
+  } else toast('Không copy được — trình duyệt chặn clipboard');
+}
 function copyCue(i){
   const c=state.cues[i];
   const text=c.text.replace(/\n/g,' ');
-  const done=()=>toast('Đã copy: '+text.slice(0,40)+(text.length>40?'…':''));
-  const fallback=()=>{
-    const ta=document.createElement('textarea');
-    ta.value=text; ta.style.cssText='position:fixed;opacity:0';
-    document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); done(); }catch{ toast('Không copy được — browser chặn clipboard'); }
-    ta.remove();
-  };
-  if(navigator.clipboard && window.isSecureContext){
-    navigator.clipboard.writeText(text).then(done).catch(fallback);
-  } else fallback();
+  copyText(text, 'Đã copy: '+text.slice(0,40)+(text.length>40?'…':''));
 }
 /* user đang đọc → tạm ngưng auto-scroll 3s */
 const markUserScroll=()=>{ state.userScrollUntil=Date.now()+3000; };
@@ -1322,8 +1337,7 @@ function renderAiAcc(idx, data, via){
   div.innerHTML=html;
   div.querySelector('.ai-copy-btn').addEventListener('click', ()=>{
     const text=secs.map(([k,t])=>'### '+t+'\n'+String(j[k]||'')).join('\n\n');
-    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(()=>toast('Đã copy toàn bộ phân tích'));
-    else toast('Không copy được');
+    copyText(text, 'Đã copy toàn bộ phân tích');
   });
   div.querySelector('.ai-ref').addEventListener('click', ()=>aiRefresh(idx));
 }
