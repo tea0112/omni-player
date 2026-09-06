@@ -138,6 +138,20 @@ svg{display:block}
 .cbtn .badge{position:absolute; display:none}
 .time{font-size:13.5px; color:#ddd; font-variant-numeric:tabular-nums; padding:0 8px; white-space:nowrap}
 .time .dur{color:var(--tx2)}
+#volWrap{position:relative; display:flex; align-items:center}
+#volPop{position:absolute; bottom:52px; left:2px; background:rgba(18,18,18,.97); border:1px solid #4d4d4d; border-radius:12px; padding:10px 6px; display:none; flex-direction:column; gap:6px; z-index:30; align-items:center; box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#volPop.open{display:flex}
+/* mobile: search thu gọn còn icon, bấm mới mở ô nhập */
+@media (hover:none) and (pointer:coarse){
+  #searchInput{width:0; padding-left:0; padding-right:0; flex:0 0 auto}
+  #searchWrap.searching #searchInput{flex:1; padding:8px 0}
+  #btnCase, #searchCount{display:none}
+  #searchWrap.searching #btnCase{display:grid}
+  #searchWrap.searching #searchCount{display:inline}
+  .search-ico{cursor:pointer}
+}
+.search-ico{width:32px; height:32px; display:grid; place-items:center; flex:none; background:none}
+.search-ico svg{width:17px; height:17px; fill:var(--tx2)}
 .spacer{flex:1}
 
 /* speed menu */
@@ -271,6 +285,11 @@ svg{display:block}
 .cue-loop:hover, .cue-copy:hover{background:#ffffff1a}
 .cue-loop svg, .cue-copy svg{width:13px;height:13px;fill:currentColor}
 .cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px}
+/* màn cảm ứng không có hover -> luôn hiện nút lặp/copy (mờ để không chói mắt) */
+@media (hover:none) and (pointer:coarse){
+  .cue-loop,.cue-copy{opacity:.55}
+  .cue.loop-a .cue-loop, .cue.loop-b .cue-loop{opacity:1}
+}
 .cue-text{font-size:14.5px; color:#ddd; white-space:pre-line; word-break:break-word}
 .cue.active{background:#303030}
 .cue.active .cue-text{color:#fff; font-weight:600}
@@ -296,6 +315,7 @@ svg{display:block}
   .transcript-panel{width:100%; border-left:none; border-top:1px solid var(--line); flex:1; min-height:0}
   .cue-text{font-size:15px}
   .time .dur{display:none}
+  #subOverlay{font-size:calc(13px * var(--sub-scale,1))}
 }
 /* hide volume slider on touch devices (hardware keys) */
 @media (hover:none) and (pointer:coarse){ #volSlider{display:none} }
@@ -325,30 +345,32 @@ svg{display:block}
 
 /* ===== Dialogs ===== */
 dialog{
-  background:var(--bg2); color:var(--tx); border:1px solid #3a3a3a; border-radius:14px;
+  background:var(--bg2); color:var(--tx); border:1px solid #4d4d4d; border-radius:14px;
   padding:0; width:min(430px, calc(100vw - 32px)); max-height:min(80dvh,640px);
-  box-shadow:0 18px 60px rgba(0,0,0,.6);
+  box-shadow:0 18px 60px rgba(0,0,0,.7);
 }
-dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog::backdrop{background:rgba(0,0,0,.65)}
 .dlg-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--line)}
 .dlg-head h2{margin:0; font-size:16px}
 .dlg-head button{width:34px;height:34px;border-radius:50%;display:grid;place-items:center}
 .dlg-head button:hover{background:#ffffff14}
 .dlg-head svg{width:17px;height:17px;fill:#ccc}
 .dlg-body{padding:14px 16px calc(18px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:16px; overflow-y:auto}
-.field label{display:block; font-size:12.5px; color:var(--tx2); margin-bottom:6px}
+.field label{display:block; font-size:12.5px; color:#c9c9c9; margin-bottom:6px}
 .field .row{display:flex; gap:6px; flex-wrap:wrap; align-items:center}
-.preset{padding:6px 12px; border-radius:999px; background:var(--bg3); font-size:13px; min-height:32px}
-.preset:hover{background:#333}
+.slabel{display:flex; flex-direction:column; gap:4px; flex:1; min-width:0}
+.slabel span{font-size:11px; color:#c9c9c9}
+.preset{padding:6px 12px; border-radius:999px; background:#2e2e2e; color:#ddd; font-size:13px; min-height:32px}
+.preset:hover{background:#3a3a3a}
 .preset.on{background:rgba(240,64,64,.18); color:var(--acc2); font-weight:600}
 .field input[type=number], .field input[type=text], .field select{
-  background:var(--bg3); border:1px solid #383838; color:var(--tx); border-radius:8px;
+  background:#262626; border:1px solid #5c5c5c; color:#fff; border-radius:8px;
   padding:8px 10px; font-size:16px; outline:none; min-height:40px;
 }
 .field input[type=number]{width:90px}
 .field input[type=text]{flex:1; min-width:0}
 .field select{flex:1; min-width:0}
-.field .hint{font-size:12px; color:#777; margin-top:5px}
+.field .hint{font-size:12px; color:#9e9e9e; margin-top:5px}
 .primary{background:var(--acc); color:#fff; padding:9px 16px; border-radius:8px; font-weight:600; min-height:40px}
 .primary:hover{background:#ff5252}
 kbd{
@@ -422,23 +444,26 @@ kbd{
             <svg id="icPlay" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
             <svg id="icPause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
           </button>
-          <button class="cbtn small" id="btnPrevCue" title="Câu phụ đề trước (,)">
-            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
-          </button>
-          <button class="cbtn small" id="btnNextCue" title="Câu phụ đề sau (.)">
-            <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>
-          </button>
           <button class="cbtn small" id="btnBack" title="Tua lại (← / J)">
             <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>
           </button>
           <button class="cbtn small" id="btnFwd" title="Tua tới (→ / L)">
             <svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/></svg>
           </button>
-          <button class="cbtn small" id="btnMute" title="Ẩm thanh (M)">
-            <svg id="icVol" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
-            <svg id="icMuted" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12A4.5 4.5 0 0 0 14 8v2.2l2.5 2.5v-.7zM19 12a7 7 0 0 1-1 3.6l1.5 1.5A9 9 0 0 0 21 12a9 9 0 0 0-7-8.8v2.1A7 7 0 0 1 19 12zM4.3 3 3 4.3 7.7 9H3v6h4l5 5v-6.7l4.3 4.3a7 7 0 0 1-2.3 1.3v2.1a9 9 0 0 0 3.7-2L19.7 21 21 19.7 4.3 3zM12 4l-2.1 2.1L12 8.2V4z"/></svg>
-          </button>
-          <input type="range" id="volSlider" min="0" max="1" step="0.01" value="1" title="Âm lượng (↑/↓)" style="width:80px; accent-color:var(--acc)">
+          <div id="volWrap">
+            <button class="cbtn small" id="btnMute" title="Ẩm thanh (M) — mobile: bấm để kéo âm lượng">
+              <svg id="icVol" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+              <svg id="icMuted" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12A4.5 4.5 0 0 0 14 8v2.2l2.5 2.5v-.7zM19 12a7 7 0 0 1-1 3.6l1.5 1.5A9 9 0 0 0 21 12a9 9 0 0 0-7-8.8v2.1A7 7 0 0 1 19 12zM4.3 3 3 4.3 7.7 9H3v6h4l5 5v-6.7l4.3 4.3a7 7 0 0 1-2.3 1.3v2.1a9 9 0 0 0 3.7-2L19.7 21 21 19.7 4.3 3zM12 4l-2.1 2.1L12 8.2V4z"/></svg>
+            </button>
+            <input type="range" id="volSlider" min="0" max="1" step="0.01" value="1" title="Âm lượng (↑/↓)" style="width:80px; accent-color:var(--acc)">
+            <div id="volPop">
+              <button class="cbtn small" id="btnMuteV" title="Ẩm / hiện tiếng">
+                <svg id="icVolV" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+                <svg id="icMutedV" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12A4.5 4.5 0 0 0 14 8v2.2l2.5 2.5v-.7zM19 12a7 7 0 0 1-1 3.6l1.5 1.5A9 9 0 0 0 21 12a9 9 0 0 0-7-8.8v2.1A7 7 0 0 1 19 12zM4.3 3 3 4.3 7.7 9H3v6h4l5 5v-6.7l4.3 4.3a7 7 0 0 1-2.3 1.3v2.1a9 9 0 0 0 3.7-2L19.7 21 21 19.7 4.3 3zM12 4l-2.1 2.1L12 8.2V4z"/></svg>
+              </button>
+              <input type="range" id="volSliderV" min="0" max="1" step="0.01" value="1" style="writing-mode:vertical-lr; direction:rtl; width:28px; height:120px; accent-color:var(--acc); align-self:center">
+            </div>
+          </div>
           <div class="time"><span id="tCur">0:00</span> <span class="dur">/ <span id="tDur">0:00</span></span></div>
           <div class="spacer"></div>
           <div id="speedWrap">
@@ -499,8 +524,10 @@ kbd{
 
   <aside class="transcript-panel" id="transcriptPanel">
     <div class="tp-toolbar">
-      <div class="search-wrap">
-        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+      <div class="search-wrap" id="searchWrap">
+        <button id="btnSearchIco" class="search-ico" title="Tìm trong phụ đề">
+          <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
+        </button>
         <input id="searchInput" type="text" placeholder="Tìm trong phụ đề…" autocomplete="off" enterkeyhint="search">
         <button id="btnCase" class="case-tgl" title="Phân biệt hoa / thường">Aa</button>
         <span id="searchCount"></span>
@@ -571,37 +598,47 @@ kbd{
     <div class="field">
       <label>Giao diện phụ đề trên video</label>
       <div class="row">
-        <select id="subSizeSel" title="Kích cỡ">
-          <option value="0.8">Nhỏ</option>
-          <option value="1">Vừa</option>
-          <option value="1.25">Lớn</option>
-          <option value="1.5">Rất lớn</option>
-        </select>
-        <select id="subPosSel" title="Vị trí dọc">
-          <option value="6">Rất thấp</option>
-          <option value="10">Thấp</option>
-          <option value="14">Vừa</option>
-          <option value="24">Cao</option>
-          <option value="36">Rất cao</option>
-        </select>
-        <select id="subBgSel" title="Nền phụ đề">
-          <option value="none">Không nền</option>
-          <option value="dim">Nền mờ</option>
-          <option value="solid">Nền đậm</option>
-        </select>
+        <div class="slabel"><span>Kích cỡ</span>
+          <select id="subSizeSel" title="Kích cỡ">
+            <option value="0.8">Nhỏ</option>
+            <option value="1">Vừa</option>
+            <option value="1.25">Lớn</option>
+            <option value="1.5">Rất lớn</option>
+          </select>
+        </div>
+        <div class="slabel"><span>Vị trí</span>
+          <select id="subPosSel" title="Vị trí dọc">
+            <option value="6">Rất thấp</option>
+            <option value="10">Thấp</option>
+            <option value="14">Vừa</option>
+            <option value="24">Cao</option>
+            <option value="36">Rất cao</option>
+          </select>
+        </div>
+        <div class="slabel"><span>Nền</span>
+          <select id="subBgSel" title="Nền phụ đề">
+            <option value="none">Không nền</option>
+            <option value="dim">Nền mờ</option>
+            <option value="solid">Nền đậm</option>
+          </select>
+        </div>
       </div>
-      <div class="row" style="margin-top:8px">
-        <select id="subColorSel" title="Màu chữ">
-          <option value="#ffffff">Chữ trắng</option>
-          <option value="#ffec3d">Chữ vàng</option>
-          <option value="#7ecbff">Chữ xanh</option>
-        </select>
-        <select id="subFontSel" title="Kiểu chữ">
-          <option value="default">Font chuẩn</option>
-          <option value="serif">Font Serif</option>
-          <option value="mono">Font Monospace</option>
-        </select>
-        <button class="preset" id="subStyleReset">Mặc định</button>
+      <div class="row" style="margin-top:10px">
+        <div class="slabel"><span>Màu chữ</span>
+          <select id="subColorSel" title="Màu chữ">
+            <option value="#ffffff">Trắng</option>
+            <option value="#ffec3d">Vàng</option>
+            <option value="#7ecbff">Xanh nhạt</option>
+          </select>
+        </div>
+        <div class="slabel"><span>Kiểu chữ</span>
+          <select id="subFontSel" title="Kiểu chữ">
+            <option value="default">Chuẩn</option>
+            <option value="serif">Serif</option>
+            <option value="mono">Monospace</option>
+          </select>
+        </div>
+        <button class="preset" id="subStyleReset" style="align-self:flex-end; min-height:40px">Mặc định</button>
       </div>
     </div>
   </div>
@@ -854,8 +891,8 @@ list.addEventListener('click', e=>{
 });
 function copyCue(i){
   const c=state.cues[i];
-  const text='['+fmt(c.start)+'] '+c.text.replace(/\n/g,' ');
-  const done=()=>toast('Đã copy: '+c.text.replace(/\n/g,' ').slice(0,40)+(c.text.replace(/\n/g,' ').length>40?'…':''));
+  const text=c.text.replace(/\n/g,' ');
+  const done=()=>toast('Đã copy: '+text.slice(0,40)+(text.length>40?'…':''));
   const fallback=()=>{
     const ta=document.createElement('textarea');
     ta.value=text; ta.style.cssText='position:fixed;opacity:0';
@@ -928,8 +965,12 @@ const applySearchDebounced=debounce(applySearch,150);
 searchInput.addEventListener('input', applySearchDebounced);
 searchInput.addEventListener('keydown', e=>{
   if(e.key==='Enter'){ e.preventDefault(); jumpMatch(e.shiftKey?-1:1); }
-  if(e.key==='Escape'){ searchInput.value=''; applySearch(); searchInput.blur(); }
+  if(e.key==='Escape'){
+    searchInput.value=''; applySearch(); searchInput.blur();
+    $('#searchWrap').classList.remove('searching');
+  }
 });
+searchInput.addEventListener('blur', ()=>{ if(!searchInput.value) $('#searchWrap').classList.remove('searching'); });
 function jumpMatch(dir){
   if(!state.matches.length) return;
   state.matchPos=(state.matchPos+dir+state.matches.length)%state.matches.length;
@@ -1147,7 +1188,7 @@ video.addEventListener('pause', ()=>{ state.playing=false; state.pendingEnd=null
 video.addEventListener('seeked', ()=>{ if(state.playing) recomputePendingEnd(); });
 video.addEventListener('ended', ()=>{ saveSession(); });
 video.addEventListener('ratechange', ()=>{ speedLabel.textContent=(Math.round(video.playbackRate*100)/100)+'×'; buildSpeedChips(); saveSettings(); mediaSessionPosition(); });
-video.addEventListener('volumechange', ()=>{ icVol.style.display=video.muted||video.volume===0?'none':''; icMuted.style.display=video.muted||video.volume===0?'':'none'; volSlider.value=video.muted?0:video.volume; saveSettings(); });
+video.addEventListener('volumechange', ()=>{ const m=video.muted||video.volume===0; icVol.style.display=m?'none':''; icMuted.style.display=m?'':'none'; icVolV.style.display=m?'none':''; icMutedV.style.display=m?'':'none'; volSlider.value=video.muted?0:video.volume; $('#volSliderV').value=video.muted?0:video.volume; saveSettings(); });
 video.addEventListener('loadedmetadata', ()=>{
   tDur.textContent=fmt(video.duration);
   tryRestoreSession();
@@ -1220,16 +1261,26 @@ $('#btnPlay').addEventListener('click', togglePlay);
 bigPlay.addEventListener('click', togglePlay);
 $('#btnBack').addEventListener('click', ()=>seekBy(-state.seekStep,true));
 $('#btnFwd').addEventListener('click', ()=>seekBy(state.seekStep,true));
-$('#btnPrevCue').addEventListener('click', prevCue);
-$('#btnNextCue').addEventListener('click', nextCue);
-$('#btnMute').addEventListener('click', ()=>{ video.muted=!video.muted; });
+const volPop=$('#volPop');
+$('#btnMute').addEventListener('click', ()=>{
+  if(isCoarse){ volPop.classList.toggle('open'); return; } // mobile: mở popup âm lượng dọc
+  video.muted=!video.muted;
+});
+$('#btnMuteV').addEventListener('click', ()=>{ video.muted=!video.muted; });
+$('#volSliderV').addEventListener('input', ()=>{ video.muted=false; video.volume=+$('#volSliderV').value; });
+document.addEventListener('pointerdown', e=>{ if(volPop.classList.contains('open') && !e.target.closest('#volWrap')) volPop.classList.remove('open'); });
+$('#btnSearchIco').addEventListener('click', ()=>{
+  const sw=$('#searchWrap');
+  sw.classList.add('searching'); searchInput.focus();
+});
 volSlider.addEventListener('input', ()=>{ video.muted=false; video.volume=+volSlider.value; });
 
 const RATES=[0.25,0.5,0.75,1,1.25,1.5,1.75,2];
 function buildSpeedChips(){
   const box=$('#speedChips'); if(!box) return;
   box.innerHTML='';
-  for(const r of [0.75,1,1.25,1.5,2]){
+  /* chỉ cần giảm tốc — 1× trở về bình thường */
+  for(const r of [0.25,0.5,0.75,1]){
     const b=document.createElement('button');
     b.className='spd'; b.textContent=(Math.round(r*100)/100)+'×';
     b.classList.toggle('on', Math.abs(r-video.playbackRate)<0.01);
@@ -1737,6 +1788,9 @@ $('#btnCase').classList.toggle('on', state.caseSensitive);
 volSlider.value=video.muted?0:video.volume;
 icVol.style.display=video.muted||video.volume===0?'none':'';
 icMuted.style.display=video.muted||video.volume===0?'':'none';
+icVolV.style.display=video.muted||video.volume===0?'none':'';
+icMutedV.style.display=video.muted||video.volume===0?'':'none';
+$('#volSliderV').value=video.muted?0:video.volume;
 speedLabel.textContent=(Math.round(video.playbackRate*100)/100)+'×';
 buildSpeedChips();
 $('#btnBack').title='Tua lại '+state.seekStep+'s (← / J)';
