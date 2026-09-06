@@ -33,23 +33,24 @@ python3 -m http.server 8080
    - **⚙ Cài đặt**: đổi bước tua (mặc định 5s), nhảy tới thời điểm, đổi bảng mã phụ đề khi tiếng Việt lỗi font, và **giao diện phụ đề** — cỡ chữ, vị trí dọc, nền (không/mờ/đậm), màu chữ (trắng/vàng/xanh), kiểu font — xem trước live, tự lưu
    - **Cuộn chuột trên vùng video** để chỉnh âm lượng (HUD % hiện ngay); lăn chuột trên **progress bar** để tua
 
-## 📖 Tra từ trong transcript
-
-- **Double-click vào bất kỳ từ nào trong transcript** → popup ngay tại chỗ: nghĩa tiếng Việt, định nghĩa tiếng Anh (kèm từ loại + ví dụ), **đọc từ bằng giọng chuẩn** (TTS)
-- Nguồn: dictionaryapi.dev → Datamuse → Wiktionary (tự chuyển nguồn nếu một cái chạm) + MyMemory (dịch VI) — **miễn phí, không cần key**
-
 ## 🤖 AI phân tích câu thoại (khung 6 mục)
 
 Hover một câu trong transcript → bấm **✨** → video tự pause và AI phân tích câu đó theo **khung cố định 6 mục**, render ngay dưới dòng phụ đề (không rời mắt):
 
 1. **Phiên âm IPA** (General American) — chỉ từ A2+, kèm nhãn CEFR
-2. **Native Connected Speech** — nhược âm, nối âm, glottal stop [ʔ], nuốt /t/… kèm chuỗi `→ /IPA/`
+2. **Nói nối (connected speech)** — nhược âm, nối âm, âm tắt hầu [ʔ], nuốt /t/… kèm chuỗi `→ /IPA/`
 3. **Phân tích ngữ pháp** — cấu trúc, thì, từng cụm
 4. **Dịch nghĩa & từ vựng** + 2 bản dịch tiếng Việt tự nhiên
 5. **Meaning in English (A2)**
 6. **Bối cảnh** — AI đọc toàn bộ phụ đề để giải thích cảnh phim
 
-**Cấu hình:** ⚙ Cài đặt → 🤖 AI: Provider (Gemini/OpenAI/OpenRouter/Custom OpenAI-compatible) + API key + model. Key chỉ lưu trong máy bạn, gọi thẳng tới provider — app không có server.
+**Cấu hình:** ⚙ Cài đặt → 🤖 AI: danh sách provider theo thứ tự ưu tiên (NVIDIA NIM, DeepSeek, OpenRouter, OpenAI, OpenCode Zen/Go, Gemini, Custom OpenAI-compatible) + API key + model — **lỗi tự rơi xuống provider kế tiếp (fallback chain)**. Key chỉ lưu trong máy bạn, gọi thẳng tới provider — app không có server.
+
+> ⚠ **NVIDIA NIM chặn gọi trực tiếp từ browser (CORS)** — mọi trình duyệt đều không gọi được NIM, kể cả desktop. Thêm **OpenRouter** vào chuỗi làm provider dự phòng: OpenRouter có các model NVIDIA tương đương và cho phép gọi từ browser. Khi provider đầu lỗi, app tự chuyển sang provider sau và ghi chú "bỏ qua: …" cạnh dòng *via*.
+>
+> ⚡ **Đã tắt reasoning tối đa:** prompt có sẵn `detailed thinking off. /no_think`, OpenRouter gửi thêm `reasoning:{enabled:false}`. Lưu ý: một số model **reasoning-thuần** (vd `nvidia/nemotron-*-lightning` trên NIM) **bỏ qua mọi công tắc** — test thật: câu `17×23` vẫn mất 27–72 giây để "suy nghĩ". Đang chậm? **Đổi sang model thường** trong 🔍 (vd `meta/llama-3.3-70b-instruct`, `deepseek-chat`, `google/gemini-2.0-flash-001`) — khác nhau vài chục giây mỗi câu.
+
+**Ngôn ngữ phân tích:** mục 1–4 + 6 luôn viết theo "Ngôn ngữ giải thích" trong ⚙ (mặc định **Tiếng Việt** — kể cả thuật ngữ: dạng yếu, nối âm, âm tắt hầu [ʔ], chủ ngữ/động từ…). Riêng mục 5 giữ tiếng Anh đơn giản A2 **do chủ đích** — để bạn hiểu câu bằng tiếng Anh dễ.
 
 **Tiết kiệm chi phí:**
 - Kết quả phân tích **cache 2 lớp** (RAM + localStorage theo từng file) — hỏi lại câu cũ = 0ms 0₫, sống qua reload
@@ -79,9 +80,9 @@ Mobile: tap video = hiện/ẩn control · **double-tap trái/phải = tua ∓ b
 Giao diện tự nhận diện: **điện thoại + iPad dọc** (video trên, transcript dưới), **điện thoại ngang** (video full màn, transcript trượt vào qua nút), tablet/desktop ngang (song song kiểu YouTube).
 
 **Trên màn cảm ứng:**
-- Cụm nút giữa video luôn hiện: **tua-lùi · play/pause · tua-tới** (theo bước tua đã đặt)
-- **Tap video** = phát/dừng · **double-tap trái/phải** = tua · **swipe ngang** = kéo tua với HUD thời gian
-- **UI không bao giờ tự ẩn** — thanh điều khiển, transcript, nút trên mỗi câu luôn sẵn sàng
+- Cụm nút giữa video (**tua-lùi · play/pause · tua-tới** theo bước tua đã đặt): **tự ẩn sau ~3 giây khi đang phát**, chạm vào màn hình là hiện lại; đang dừng phim thì luôn hiện
+- **Tap video** = phát/dừng · **double-tap trái/phải** = tua ∓ bước tua (giống YouTube app)
+- **UI không bao giờ tự ẩn** (trừ cụm nút giữa nêu trên) — thanh điều khiển, transcript, nút trên mỗi câu luôn sẵn sàng
 - Volume: bấm icon loa → thanh chỉnh dọc; Search: bấm kính lúp → mở ô tìm
 
 Trên iPhone nhớ bật chế độ xoay dọc không khoá để dùng landscape. Trên iOS, nút ▶ "Tiếp tục xem" sẽ mở bảng chọn file của hệ thống — chọn **Choose File** rồi trỏ tới video là app tự nhảy tới chỗ đang xem dở.

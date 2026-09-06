@@ -83,8 +83,9 @@ svg{display:block}
 #bigPlay svg{width:30px;height:30px;fill:#fff;margin-left:4px}
 #bigPlay[hidden]{display:none}
 
-/* cụm điều khiển giữa video: tua-lùi | play | tua-tới (màn cảm ứng, luôn hiện) */
-#centerCtl{position:absolute; z-index:5; left:50%; top:50%; transform:translate(-50%,-50%); display:none; gap:30px; align-items:center}
+/* cụm điều khiển giữa video: tua-lùi | play | tua-tới (màn cảm ứng; tự ẩn sau 3s khi đang phát) */
+#centerCtl{position:absolute; z-index:5; left:50%; top:50%; transform:translate(-50%,-50%); display:none; gap:30px; align-items:center; transition:opacity .3s}
+#centerCtl.cc-hide{opacity:0; pointer-events:none}
 .ccb{width:56px; height:56px; border-radius:50%; background:rgba(10,10,10,.55); display:grid; place-items:center; position:relative}
 .ccb svg{width:24px; height:24px; fill:#fff}
 .ccb span{position:absolute; bottom:-19px; left:50%; transform:translateX(-50%); font-size:11px; font-weight:600; color:#fff; text-shadow:0 1px 2px #000; white-space:nowrap}
@@ -304,8 +305,6 @@ body.touch #bigPlay{display:none!important}
 .cue-actions .cue-ai:hover{color:var(--acc2)}
 .cue-actions .cue-copy:hover{color:#8fb4ff}
 .cue-actions svg{width:14px;height:14px;fill:currentColor}
-#scrubHud{position:absolute; z-index:8; left:50%; top:15%; transform:translateX(-50%); background:rgba(15,15,15,.92); border:1px solid #3a3a3a; border-radius:999px; padding:8px 14px; font-size:14px; font-weight:600; pointer-events:none}
-#scrubHud[hidden]{display:none}
 .cue-ai{width:26px; height:26px; display:grid; place-items:center; color:#999}
 .cue-ai:hover{color:var(--acc2); background:#ffffff1a}
 .cue-ai svg{width:13px; height:13px; fill:currentColor}
@@ -357,26 +356,6 @@ body.touch #bigPlay{display:none!important}
 .mp-item b{display:block; font-size:13px; word-break:break-all}
 .mp-item span{display:block; font-size:11.5px; color:var(--tx2)}
 
-/* ===== Tra từ (double-click trong transcript) ===== */
-#wordPopup{
-  position:fixed; z-index:300; width:262px; max-width:calc(100vw - 16px);
-  background:#1d1d1d; border:1px solid #4d4d4d; border-radius:12px;
-  padding:10px 12px; box-shadow:0 12px 32px rgba(0,0,0,.6); font-size:13.5px;
-}
-#wordPopup[hidden]{display:none}
-.wp-head{display:flex; align-items:center; gap:8px; margin-bottom:6px}
-.wp-head b{font-size:15.5px; color:#fff}
-.wp-ipa{color:#8fb4ff; font-size:12.5px}
-.wp-head-r{margin-left:auto; display:flex; gap:2px}
-.wp-head-r button{width:26px; height:26px; border-radius:6px; display:grid; place-items:center; color:#bbb}
-.wp-head-r button:hover{background:#ffffff14; color:#fff}
-.wp-head-r button svg{width:13px; height:13px; fill:currentColor}
-.wp-vi{color:#7ddb7d; margin:4px 0; line-height:1.4}
-.wp-def{margin:6px 0 0; color:#ddd; line-height:1.45}
-.wp-def .pos{color:var(--acc2); font-style:italic; font-size:12px}
-.wp-def .ex{color:#999; font-size:12px; font-style:italic}
-.wp-load{display:flex; align-items:center; gap:8px; color:var(--tx2); padding:4px 0}
-.wp-err{color:#ff8a80; font-size:12.5px; line-height:1.4}
 .cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px}
 /* màn cảm ứng không có hover -> hàng nút luôn hiện dưới cue */
 @media (hover:none) and (pointer:coarse){
@@ -806,8 +785,6 @@ kbd{
   </div>
 </dialog>
 
-<div id="wordPopup" hidden></div>
-
 <dialog id="modelDlg">
   <div class="dlg-head"><h2>Chọn model <span id="mpProv" style="color:#999; font-weight:400; font-size:13px"></span></h2><button id="mpClose"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button></div>
   <div class="dlg-body">
@@ -852,6 +829,7 @@ const loopChip=$('#loopChip'), loopLabel=$('#loopLabel');
 const errOverlay=$('#errorOverlay'), errFile=$('#errFile');
 const welcome=$('#welcome'), fileChip=$('#fileChip'), dragOverlay=$('#dragOverlay'), wdrop=$('#wdrop');
 const seekL=$('#seekL'), seekR=$('#seekR');
+const centerCtl=$('#centerCtl');
 const settingsDialog=$('#settingsDialog'), shortcutsDialog=$('#shortcutsDialog');
 const stepInput=$('#stepInput'), stepPresets=$('#stepPresets'), jumpInput=$('#jumpInput'), encSelect=$('#encSelect');
 const btnAutoPause=$('#btnAutoPause'), btnAutoScroll=$('#btnAutoScroll'), btnClearLoop=$('#btnClearLoop'), btnClosePanel=$('#btnClosePanel');
@@ -1065,6 +1043,8 @@ list.addEventListener('click', e=>{
   else if(!onBtn){
     seekTo(state.cues[i].start+0.001);
     showControls();
+    onActiveRowChange(i);              // viền active cập nhật NGAY, không chờ frame kế
+    if(state.autoScroll) scrollRowIntoView(i);
   }
 });
 function copyCue(i){
@@ -1094,16 +1074,16 @@ function onActiveRowChange(i){
   state.activeRow=i;
   if(rows[i]){
     rows[i].classList.add('active');
-    if(state.autoScroll && Date.now()>=(state.userScrollUntil||0)) scrollRowIntoView(i,false);
+    if(state.autoScroll && Date.now()>=(state.userScrollUntil||0)) scrollRowIntoView(i);
   }
   if(i>=0 && state.playing) maybePrefetchNext(i);
 }
-function scrollRowIntoView(i, instant){
+/* cuộn NGAY tới dòng đang phát — không animation để luôn bám theo video */
+function scrollRowIntoView(i){
   const r=rows[i]; if(!r) return;
-  const smooth=!instant && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  r.scrollIntoView({block:'center', behavior:smooth?'smooth':'auto'});
+  r.scrollIntoView({block:'center', behavior:'auto'});
 }
-const repositionActive=debounce(()=>{ if(state.activeRow>=0) scrollRowIntoView(state.activeRow,true); },250);
+const repositionActive=debounce(()=>{ if(state.activeRow>=0) scrollRowIntoView(state.activeRow); },250);
 
 /* ================= Search ================= */
 function escapeRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
@@ -1155,7 +1135,7 @@ function jumpMatch(dir){
   state.matchPos=(state.matchPos+dir+state.matches.length)%state.matches.length;
   const i=state.matches[state.matchPos];
   seekTo(state.cues[i].start+0.001);
-  scrollRowIntoView(i,false);
+  scrollRowIntoView(i);
   const r=rows[i]; if(r){ r.classList.add('goto'); setTimeout(()=>r.classList.remove('goto'),900); }
   searchCount.textContent=(state.matchPos+1)+'/'+state.matches.length;
 }
@@ -1229,102 +1209,9 @@ $('#btnSub2').addEventListener('click', ()=>{
 $('#btnSub2Clear').addEventListener('click', clearSub2);
 $('#fileSub2').addEventListener('change', e=>{ loadSub2(e.target.files[0]); e.target.value=''; });
 
-/* ================= Tra từ (double-click trong transcript) ================= */
-const wordCache=new Map();
-function speakEn(text){
-  try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; u.rate=0.85; speechSynthesis.speak(u); }catch{}
-}
-async function fetchDic(w){
-  const ck='dic:'+w;
-  if(wordCache.has(ck)) return wordCache.get(ck);
-  let data={ipa:'', audio:'', defs:[]};
-  try{
-    const r=await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/'+encodeURIComponent(w), {signal:AbortSignal.timeout(6000)});
-    if(r.ok){
-      const j=await r.json(); const e=j[0]||{};
-      data.ipa=e.phonetic || (e.phonetics||[]).find(p=>p.text&&p.text.startsWith('/'))?.text || '';
-      data.audio=(e.phonetics||[]).find(p=>p.audio)?.audio || '';
-      const defs=[];
-      for(const m of (e.meanings||[])) for(const d of (m.definitions||[]).slice(0,2)) defs.push({pos:m.partOfSpeech, def:d.definition, ex:d.example||''});
-      data.defs=defs.slice(0,4);
-    }
-  }catch{}
-  wordCache.set(ck, data); return data;
-}
-async function fetchVi(w){
-  const ck='vi:'+w;
-  if(wordCache.has(ck)) return wordCache.get(ck);
-  let vi='';
-  try{
-    const r=await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(w)+'&langpair=en|vi', {signal:AbortSignal.timeout(6000)});
-    if(r.ok){ const j=await r.json(); vi=(j.responseData?.translatedText||'').trim(); }
-  }catch{}
-  wordCache.set(ck, vi); return vi;
-}
-async function fetchDatamuse(w){
-  const ck='dm:'+w;
-  if(wordCache.has(ck)) return wordCache.get(ck);
-  const defs=[];
-  try{
-    const r=await fetch('https://api.datamuse.com/words?sp='+encodeURIComponent(w)+'&md=dp', {signal:AbortSignal.timeout(6000)});
-    if(r.ok){ const j=await r.json(); const hit=(j||[]).find(x=>x.word===w);
-      for(const d of (hit?.defs||[]).slice(0,4)){ const [pos,...rest]=d.split('\t'); defs.push({pos:pos==='n'?'noun':pos==='v'?'verb':pos==='adj'?'adjective':pos==='adv'?'adverb':pos, def:rest.join('\t')}); } }
-  }catch{}
-  wordCache.set(ck, defs); return defs;
-}
-const wp=$('#wordPopup');
-let wpToken=0, wpCueIdx=null, wpWord='';
-document.addEventListener('pointerdown', e=>{ if(!wp.hidden && !e.target.closest('#wordPopup') && !e.target.closest('.cue')) wp.hidden=true; });
-async function showWordPopup(rawWord, anchor, cueIdx){
-  const word=rawWord.toLowerCase();
-  wpToken++; const my=wpToken;
-  wpWord=word; wpCueIdx=cueIdx;
-  wp.hidden=false;
-  const W=262;
-  let x=clamp(anchor.left, 8, innerWidth-W-8);
-  let y=anchor.bottom+8;
-  if(y+180>innerHeight) y=Math.max(8, anchor.top-186);
-  wp.style.left=x+'px'; wp.style.top=y+'px';
-  wp.innerHTML='<div class="wp-load"><span class="spin"></span> Đang tra "'+escHtml(word)+'"…</div>';
-  speakEn(word);
-  const [dic, vi, dm]=await Promise.all([fetchDic(word), fetchVi(word), fetchDatamuse(word).catch(()=>[])]);
-  if(my!==wpToken || wp.hidden) return;
-  const defs=(dic.defs && dic.defs.length? dic.defs : dm).slice(0,3);
-  let html='<div class="wp-head"><b>'+escHtml(word)+'</b>'+(dic.ipa?'<span class="wp-ipa">'+escHtml(dic.ipa)+'</span>':'')+
-    '<span class="wp-head-r"><button id="wpSpeak" title="Đọc từ"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg></button>'+
-    '<button id="wpClose" title="Đóng"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button></span></div>';
-  html+= vi? '<div class="wp-vi">🇻🇳 '+escHtml(vi)+'</div>' : '';
-  if(defs.length) html+=defs.map(d=>'<div class="wp-def"><span class="pos">'+escHtml(d.pos||'')+'</span> — '+escHtml(d.def)+(d.ex?'<div class="ex">“'+escHtml(d.ex)+'”</div>':'')+'</div>').join('');
-  if(!vi && !defs.length) html+='<div class="wp-err">Không tra được từ này (mạng hoặc từ không tồn tại).</div>';
-  wp.innerHTML=html;
-  $('#wpSpeak').addEventListener('click', ()=>speakEn(word));
-  $('#wpClose').addEventListener('click', ()=>{ wp.hidden=true; });
-}
-/* double-click vào từ trong transcript để tra */
-list.addEventListener('dblclick', e=>{
-  const row=e.target.closest('.cue'); if(!row) return;
-  const sel=String(getSelection()||'').trim();
-  let word=sel;
-  if(!word || word.includes(' ')){
-    try{
-      const range=document.caretRangeFromPoint? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
-      if(range && range.startContainer && range.startContainer.nodeType===3){
-        const text=range.startContainer.textContent||'', off=range.startOffset;
-        let a=off; while(a>0 && /[\w'’-]/.test(text[a-1])) a--;
-        let b=off; while(b<text.length && /[\w'’-]/.test(text[b])) b++;
-        word=text.slice(a,b);
-      }
-    }catch{}
-  }
-  word=(word||'').replace(/[^A-Za-z'’-]/g,'').trim();
-  if(!word || word.length>40) return;
-  const anchor=(e.target.closest('.cue-text')||row).getBoundingClientRect();
-  showWordPopup(word, anchor, +row.dataset.i);
-});
-
 /* ================= AI — phân tích câu thoại ================= */
 const AI_PRESETS=[
-  {id:'nim',        name:'NVIDIA NIM',      type:'openai', base:'https://integrate.api.nvidia.com/v1', model:'meta/llama-3.3-70b-instruct', warn:'CORS — browser không gọi trực tiếp được'},
+  {id:'nim',        name:'NVIDIA NIM',      type:'openai', base:'https://integrate.api.nvidia.com/v1', model:'meta/llama-3.3-70b-instruct', warn:'NIM chặn gọi trực tiếp từ browser (CORS) — nên thêm OpenRouter (có model NVIDIA) làm dự phòng'},
   {id:'deepseek',   name:'DeepSeek',        type:'openai', base:'https://api.deepseek.com/v1',         model:'deepseek-chat'},
   {id:'openrouter', name:'OpenRouter',      type:'openai', base:'https://openrouter.ai/api/v1',        model:'google/gemini-2.0-flash-001'},
   {id:'openai',     name:'OpenAI',          type:'openai', base:'https://api.openai.com/v1',           model:'gpt-4o-mini'},
@@ -1334,31 +1221,41 @@ const AI_PRESETS=[
   {id:'custom',     name:'Custom',          type:'openai', base:'',                                    model:''},
 ];
 function aiSystemPrompt(lang){
+  const vi=/vi[eệ]t|viet/i.test(lang);
+  const gloss=vi?`
+- BẮT BUỘC dùng thuật ngữ tiếng Việt (giữ ký hiệu gốc trong ngoặc nếu cần): weak form = "dạng yếu"; linking = "nối âm"; glottal stop = "âm tắt hầu [ʔ]"; flapped /t/ = "/t/ vỗ [ɾ]"; unreleased /t/ = "/t/ không bật hơi"; schwa = "âm schwa /ə/"; assimilation = "đồng hóa âm"; elision = "lược âm"; sentence type = "loại câu"; tense = "thì"; subject/verb/object = "chủ ngữ/động từ/tân ngữ"; adjective/adverb/conjunction/preposition = "tính từ/trạng từ/liên từ/giới từ".
+- Mẫu mục 1 viết đúng: **still** (A2): /stɪl/ — từ này không biến âm khi nói nhanh.
+- Mẫu mục 2 viết đúng: "and" dạng yếu /ænd/ → /ən/, nối âm với "I" thành **/ən.aɪ/**.
+- Mẫu mục 3 viết đúng: Câu trần thuật đơn. "still" là trạng từ nhấn mạnh sự tiếp diễn từ quá khứ đến hiện tại.`:'';
   return `You are an expert English-teaching assistant for Vietnamese speakers. You analyze ONE movie subtitle line using the film's full subtitle context.
-Respond in ${lang} following EXACTLY these 6 markdown sections, in this order:
+
+MOST IMPORTANT — LANGUAGE RULE: the analysis language is ${lang}. Sections 1, 2, 3, 4 and 6 must be written ENTIRELY in ${lang}: every sentence, every label, every linguistic and grammar term. NEVER write English prose in those sections. The only English allowed there: IPA symbols, the subtitle line itself, and the quoted English words being analyzed. Only section 5 stays in simple English (A2) by design.${gloss}
+
+Respond with EXACTLY these 6 markdown sections, in this order:
 
 ### 1. IPA (General American)
 - Only words at CEFR A2 or above (skip trivial A1 words: the, a, an, in, on, at, was, is, to, of, and...).
-- Each bullet: **word** (CEFR): /IPA/ — add common variant in parentheses if any.
+- Each bullet: **word** (CEFR): /IPA/ — variant notes written in ${lang}.
 
-### 2. Native Connected Speech
-- Phenomena: weak forms, consonant→vowel linking, glottal stop [ʔ], unreleased/flapped /t/.
-- Each bullet explains the phenomenon and shows the transformation: \`word word\` → **/IPA/**.
+### 2. Connected speech
+- Phenomena: weak forms, consonant→vowel linking, glottal stop [ʔ], unreleased/flapped /t/ — each explained in ${lang}.
+- Each bullet names the phenomenon in ${lang}, then shows the transformation: \`word word\` → **/IPA/**.
 
 ### 3. Grammar
-- Sentence structure, tense choice, then phrase-by-phrase breakdown.
+- Sentence structure, tense choice, then phrase-by-phrase breakdown — grammar terms written in ${lang}.
 
-### 4. Nghĩa tiếng Việt & từ vựng
+### 4. Vietnamese meaning & vocabulary
 - Key words/phrases with Vietnamese meanings, then exactly 2 natural Vietnamese translations of the whole line.
 
 ### 5. Meaning in English (A2)
-- Simple A2-level English explanation + key vocabulary bullets.
+- Simple A2-level English explanation + key vocabulary bullets. (This is the ONLY section written in English.)
 
-### 6. Bối cảnh
-- Using the film context: what is happening, who speaks to whom, the purpose of this line, what it leads to.
+### 6. Context
+- Using the film context: what is happening, who speaks to whom, the purpose of this line, what it leads to — written in ${lang}.
 
 STRICT RULES:
-- EVERY section's content MUST be written in ${lang}. Only these stay in English: IPA symbols, the original cue, quoted English words/phrases, and everything inside the "meaning_en" field.
+- Re-check the LANGUAGE RULE before answering: sections 1, 2, 3, 4, 6 in ${lang}, section 5 in simple English.
+- SPEED: detailed thinking off. /no_think — do NOT think step by step, do not emit any <think> block or reasoning; answer immediately with only the JSON.
 - Each JSON field contains ONLY its section content — NEVER repeat the section heading (no "### 1. ..." lines inside fields).
 - NO preamble, no <think> blocks in the output, no explanations outside the JSON. Start the answer directly with "{".
 Output STRICT JSON only:
@@ -1405,13 +1302,17 @@ function renderAiAcc(idx, data, via){
   const j=data.parsed||{};
   const secs=[
     ['ipa','1. Phiên âm IPA (General American)'],
-    ['connected_speech','2. Native Connected Speech'],
+    ['connected_speech','2. Nói nối (connected speech)'],
     ['grammar','3. Phân tích ngữ pháp'],
     ['meaning_vi','4. Dịch nghĩa & từ vựng'],
     ['meaning_en','5. Meaning in English (A2)'],
     ['context','6. Bối cảnh'],
   ];
-  let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI'+(via?' <span style="color:#999;font-weight:400">· via '+escHtml(via)+'</span>':'')+'</span><span class="ai-head-r">'+
+  let viaNote='';
+  if(via && data.fails && data.fails.length){
+    viaNote=' · bỏ qua: '+data.fails.map(f=>{ const c=f.indexOf(':'); return c>0? f.slice(0,c)+' ('+f.slice(c+1).trim().slice(0,48)+')' : f.slice(0,60); }).join(', ');
+  }
+  let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI'+(via?' <span style="color:#999;font-weight:400">· via '+escHtml(via+viaNote)+'</span>':'')+'</span><span class="ai-head-r">'+
     '<button class="ai-ref" title="Bỏ cache — gọi lại AI">'+(data.cached?'🔄':'🔄')+'</button>'+
     '<button class="ai-copy-btn" title="Copy toàn bộ">Copy</button>'+
     '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
@@ -1509,6 +1410,11 @@ async function aiEnsureCache(p, ctxText){
   state.aiCaches[key]={name:j.name, expiry:j.expireTime||new Date(Date.now()+3600e3).toISOString(), ctxLen:ctxText.length};
   return state.aiCaches[key].name;
 }
+function netFailMsg(p){
+  return /nvidia\.com/i.test(p?.base||'')
+    ? 'NVIDIA NIM chặn gọi trực tiếp từ browser (CORS) — thêm OpenRouter (có model NVIDIA) làm provider dự phòng'
+    : 'Trình duyệt không kết nối được provider này (mạng / VPN / Shields / CORS)';
+}
 async function aiCallGeminiP(p, cue, idx, signal){
   const ctx=aiCtxText(idx);
   const q='Analyze the subtitle cue at ['+vttTs(cue.start)+' → '+vttTs(cue.end)+']: "'+cue.text.replace(/\n/g,' ')+'"';
@@ -1521,12 +1427,14 @@ async function aiCallGeminiP(p, cue, idx, signal){
     body={ systemInstruction:{parts:[{text:aiSystemPrompt(p.lang||state.ai.lang)}]},
            contents:[{role:'user', parts:[{text:'Subtitles of the film (timestamped):\n\n'+ctx+'\n\n'+q}]}] };
   }
-  const call=extra=>{
+  const call=async extra=>{
     const gc={responseMimeType:'application/json', temperature:0.4};
     if(extra) gc.maxOutputTokens=extra; // không đặt = provider dùng tối đa
-    return fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(p.model)+':generateContent?key='+encodeURIComponent(p.key),{
-      method:'POST', headers:{'Content-Type':'application/json'}, signal,
-      body:JSON.stringify({...body, generationConfig:gc})});
+    try{
+      return await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(p.model)+':generateContent?key='+encodeURIComponent(p.key),{
+        method:'POST', headers:{'Content-Type':'application/json'}, signal,
+        body:JSON.stringify({...body, generationConfig:gc})});
+    }catch(e){ if(e && e.name==='AbortError') throw e; throw new Error('Gemini: '+netFailMsg(p)); }
   };
   let res=await call(0);
   let j=await res.json();
@@ -1550,11 +1458,14 @@ async function aiCallOpenAIP(p, cue, idx, signal){
     {role:'user', content:q}];
   const headers={'Content-Type':'application/json','Authorization':'Bearer '+p.key};
   if(/openrouter\.ai/i.test(p.base)){ headers['HTTP-Referer']=location.origin; headers['X-Title']='Omni Player'; }
-  const call=mt=>{
+  const call=async mt=>{
     const b={model:p.model, messages, temperature:0.4};
+    if(/openrouter\.ai/i.test(p.base)) b.reasoning={enabled:false}; // tắt reasoning ở cấp API
     if(mt) b.max_tokens=mt; // không đặt = provider dùng tối đa model cho phép
-    return fetch(p.base.replace(/\/+$/,'')+'/chat/completions',{
-      method:'POST', headers, signal, body:JSON.stringify(b)});
+    try{
+      return await fetch(p.base.replace(/\/+$/,'')+'/chat/completions',{
+        method:'POST', headers, signal, body:JSON.stringify(b)});
+    }catch(e){ if(e && e.name==='AbortError') throw e; throw new Error(netFailMsg(p)); }
   };
   let res=await call(0);
   let j=await res.json().catch(()=>null);
@@ -1580,7 +1491,7 @@ async function aiRunAnalysis(idx, signal){
       const r=p.type==='gemini' ? await aiCallGeminiP(p, cue, idx, signal) : await aiCallOpenAIP(p, cue, idx, signal);
       const parsed=aiParse(r.text);
       if(!parsed) throw new Error('JSON trả về không đọc được');
-      const data={at:Date.now(), content:r.text, parsed, via:p.name};
+      const data={at:Date.now(), content:r.text, parsed, via:p.name, fails:errors.slice()};
       aiCacheSet(aiCacheKey(cue), data);
       return data;
     }catch(err){
@@ -1728,6 +1639,7 @@ function seekTo(t){
 function seekBy(delta, bubble){
   if(!state.videoFile) return;
   seekTo(video.currentTime+delta);
+  ccShow();
   if(bubble){
     const el=delta<0?seekL:seekR;
     el.textContent=(delta<0?'« ':'')+Math.abs(Math.round(delta))+'s'+(delta<0?'':' »');
@@ -1751,8 +1663,8 @@ function nextCue(){
 }
 
 /* events của video */
-video.addEventListener('play', ()=>{ state.playing=true; recomputePendingEnd(); updatePlayUI(); showControls(); mediaSessionSync(); });
-video.addEventListener('pause', ()=>{ state.playing=false; state.pendingEnd=null; updatePlayUI(); showControls(); saveSession(); mediaSessionSync(); });
+video.addEventListener('play', ()=>{ state.playing=true; recomputePendingEnd(); updatePlayUI(); showControls(); ccShow(); mediaSessionSync(); });
+video.addEventListener('pause', ()=>{ state.playing=false; state.pendingEnd=null; updatePlayUI(); showControls(); ccShow(); saveSession(); mediaSessionSync(); });
 video.addEventListener('seeked', ()=>{ if(state.playing) recomputePendingEnd(); });
 video.addEventListener('ended', ()=>{ saveSession(); });
 video.addEventListener('ratechange', ()=>{ speedLabel.textContent=(Math.round(video.playbackRate*100)/100)+'×'; buildSpeedChips(); saveSettings(); mediaSessionPosition(); });
@@ -1793,6 +1705,14 @@ function updatePlayUI(){
 /* controls: luôn hiện — không tự ẩn gì cả */
 let speedMenuOpen=false;
 function showControls(){ wrap.classList.remove('controls-hidden'); }
+
+/* cụm nút giữa: tự ẩn sau 3s khi đang phát — mọi thao tác đều hiện lại; đang dừng thì hiện luôn */
+let ccTimer=0;
+function ccShow(){
+  centerCtl.classList.remove('cc-hide');
+  clearTimeout(ccTimer);
+  if(state.playing && state.videoFile) ccTimer=setTimeout(()=>centerCtl.classList.add('cc-hide'), 3000);
+}
 
 /* Cuộn chuột trên vùng video = chỉnh âm lượng */
 let volHudTimer=null;
@@ -1950,34 +1870,20 @@ progressBar.addEventListener('pointermove', e=>{
 }));
 progressBar.addEventListener('pointerleave', ()=>{ if(!barDragging) barTip.hidden=true; });
 
-/* ================= Tap video = phát/dừng · double-tap = tua · swipe ngang = kéo tua ================= */
+/* ================= Tap video = phát/dừng · double-tap trái/phải = tua ================= */
 let lastTap={t:0, side:'', timer:0};
 let sp=null;
-let scrubHudEl=null;
-function scrubHud(text){ if(!scrubHudEl){ scrubHudEl=document.createElement('div'); scrubHudEl.id='scrubHud'; wrap.appendChild(scrubHudEl); } scrubHudEl.textContent=text; scrubHudEl.hidden=false; }
 surface.addEventListener('pointerdown', e=>{
   if(!state.videoFile || e.button!==0) return;
   try{ surface.setPointerCapture(e.pointerId); }catch{}
-  sp={x0:e.clientX, y0:e.clientY, scrub:false, baseT:video.currentTime||0, wasPlaying:state.playing};
-});
-surface.addEventListener('pointermove', e=>{
-  if(!sp) return;
-  const dx=e.clientX-sp.x0, dy=e.clientY-sp.y0;
-  if(!sp.scrub){
-    if(Math.abs(dx)>14 && Math.abs(dx)>Math.abs(dy)){ sp.scrub=true; sp.baseT=video.currentTime||0; if(sp.wasPlaying) video.pause(); }
-    else return;
-  }
-  const nt=clamp(sp.baseT + dx*0.25, 0, Math.max(0,(video.duration||0)-0.05));
-  video.currentTime=nt;
-  const d=nt-sp.baseT;
-  scrubHud(fmt(nt)+'  ·  '+(d>=0?'+':'−')+fmt(Math.abs(d)));
+  sp={x0:e.clientX, y0:e.clientY};
 });
 surface.addEventListener('pointerup', e=>{
   if(!sp) return;
-  const wasScrub=sp.scrub, wasPlaying=sp.wasPlaying;
+  const moved=Math.hypot(e.clientX-sp.x0, e.clientY-sp.y0)>14; // kéo/quẹt dài: không tính là tap
   sp=null;
-  if(scrubHudEl) scrubHudEl.hidden=true;
-  if(wasScrub){ if(wasPlaying) video.play().catch(()=>{}); return; }
+  ccShow();
+  if(moved) return;
   /* tap đơn = phát/dừng · tap đôi trái/phải = tua ±bước */
   const now=performance.now();
   const r=surface.getBoundingClientRect();
@@ -1990,7 +1896,7 @@ surface.addEventListener('pointerup', e=>{
   clearTimeout(lastTap.timer);
   lastTap={t:now, side, timer:setTimeout(()=>{ lastTap={t:0,side:'',timer:0}; togglePlay(); }, 260)};
 });
-surface.addEventListener('pointercancel', ()=>{ if(sp?.scrub && sp.wasPlaying) video.play().catch(()=>{}); if(scrubHudEl) scrubHudEl.hidden=true; sp=null; });
+surface.addEventListener('pointercancel', ()=>{ sp=null; });
 
 /* ================= Mở file ================= */
 function setVideo(file, handle){
@@ -2407,9 +2313,10 @@ function aiRenderChain(){
       '<div class="ai-mrow"><input class="ai-pf" data-k="model" placeholder="Model" value="'+escAttr(p.model||'')+'">'+
       '<button class="ai-mf" data-act="models" title="Chọn model từ danh sách models.dev">🔍</button></div>';
     card.querySelector('.ai-pname').textContent=p.name+(p.type==='gemini'?' (context caching)':'');
-    if(p.warn){
+    const pwarn=p.warn || AI_PRESETS.find(x=>x.base && x.base===p.base)?.warn;
+    if(pwarn){
       const w=document.createElement('span');
-      w.className='ai-warn'; w.textContent='⚠ '+p.warn;
+      w.className='ai-warn'; w.textContent='⚠ '+pwarn;
       card.querySelector('.ai-on').appendChild(w);
     }
     card.querySelectorAll('[data-k]').forEach(inp=>{
@@ -2517,7 +2424,9 @@ $('#aiTest').addEventListener('click', async ()=>{
       }
       html+='<div style="color:#7ddb7d">✓ '+escHtml(p.name)+' — OK</div>';
     }catch(err){
-      html+='<div style="color:#ff8a80">✗ '+escHtml(p.name)+' — '+escHtml(err.message)+'</div>';
+      let m=err.message||String(err);
+      if(err instanceof TypeError || /load failed|failed to fetch|networkerror/i.test(m)) m=netFailMsg(p);
+      html+='<div style="color:#ff8a80">✗ '+escHtml(p.name)+' — '+escHtml(m)+'</div>';
     }
   }
   status.innerHTML=html; status.style.color='#c9c9c9';
