@@ -231,6 +231,9 @@ svg{display:block}
 #searchClear:hover{background:#ffffff1c}
 #searchClear svg{width:15px;height:15px;fill:#ccc}
 #searchClear[hidden]{display:none}
+.case-tgl{flex:none; width:28px; height:26px; border-radius:6px; display:grid; place-items:center; font-size:12px; font-weight:700; color:var(--tx2); border:1px solid transparent}
+.case-tgl:hover{background:#ffffff14}
+.case-tgl.on{color:var(--acc2); border-color:var(--acc)}
 .tp-toggles{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap}
 .tgl{
   display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
@@ -488,6 +491,7 @@ kbd{
       <div class="search-wrap">
         <svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>
         <input id="searchInput" type="text" placeholder="Tìm trong phụ đề…" autocomplete="off" enterkeyhint="search">
+        <button id="btnCase" class="case-tgl" title="Phân biệt hoa / thường">Aa</button>
         <span id="searchCount"></span>
         <button id="searchClear" hidden title="Xoá tìm kiếm (Esc)"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button>
       </div>
@@ -612,6 +616,7 @@ const state = {
   autoPause:false, pendingEnd:null,
   loop:null,              // {a:cueIdx, b:cueIdx|null}
   seekStep:5, subsVisible:true, autoScroll:true,
+  caseSensitive:false,
   matches:[], matchPos:-1,
   resumeKey:null, hasVHandle:false, hasSHandle:false, subMeta:null, pendingSub:null,
   sub2File:null, sub2Buffer:null, cues2:[], pairs2:null, sub2Visible:true, sub2Meta:null, hasS2Handle:false, pendingSub2:null,
@@ -623,7 +628,7 @@ function saveSettings(){
   try{ localStorage.setItem(SET_KEY, JSON.stringify({
     seekStep:state.seekStep, autoPause:state.autoPause, subsVisible:state.subsVisible,
     autoScroll:state.autoScroll, volume:video.volume, muted:video.muted, rate:video.playbackRate,
-    sub2Visible:state.sub2Visible,
+    sub2Visible:state.sub2Visible, caseSensitive:state.caseSensitive,
   })); }catch{}
 }
 function loadSettings(){
@@ -631,7 +636,7 @@ function loadSettings(){
   if(!s) return;
   if(typeof s.seekStep==='number' && s.seekStep>=1 && s.seekStep<=600) state.seekStep=s.seekStep;
   state.autoPause=!!s.autoPause; state.subsVisible=s.subsVisible!==false; state.autoScroll=s.autoScroll!==false;
-  state.sub2Visible=s.sub2Visible!==false;
+  state.sub2Visible=s.sub2Visible!==false; state.caseSensitive=!!s.caseSensitive;
   if(typeof s.volume==='number') video.volume=clamp(s.volume,0,1);
   video.muted=!!s.muted;
   if(typeof s.rate==='number') video.playbackRate=clamp(s.rate,0.25,4);
@@ -817,12 +822,14 @@ const repositionActive=debounce(()=>{ if(state.activeRow>=0) scrollRowIntoView(s
 /* ================= Search ================= */
 function escapeRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function highlightHtml(cue, q){
-  const t=cue.text, lower=t.toLowerCase(), idx=[];
-  let p=lower.indexOf(q);
-  while(p!==-1){ idx.push(p); p=lower.indexOf(q,p+q.length); }
+  const cs=state.caseSensitive;
+  const t=cue.text, hay=cs?t:t.toLowerCase(), needle=cs?q:q.toLowerCase();
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const idx=[];
+  let p=hay.indexOf(needle);
+  while(p!==-1){ idx.push(p); p=hay.indexOf(needle,p+q.length); }
   if(!idx.length) return cue.html;
   let out='', last=0;
-  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   for(const p2 of idx){
     out+=esc(t.slice(last,p2))+'<mark>'+esc(t.slice(p2,p2+q.length))+'</mark>';
     last=p2+q.length;
@@ -830,11 +837,15 @@ function highlightHtml(cue, q){
   return out+esc(t.slice(last));
 }
 function applySearch(){
-  const q=searchInput.value.trim().toLowerCase();
+  const raw=searchInput.value.trim();
+  const q=raw?raw.slice(0,200):'';
+  const cs=state.caseSensitive;
+  const needle=cs?q:q.toLowerCase();
   state.matches=[]; state.matchPos=-1;
   for(let i=0;i<state.cues.length;i++){
     const row=rows[i]; if(!row) continue;
-    const hit=q && state.cues[i].text.toLowerCase().includes(q);
+    const text=state.cues[i].text;
+    const hit=q && (cs? text.includes(q) : text.toLowerCase().includes(needle));
     row.classList.toggle('hit', !!q && !hit);
     row.classList.toggle('match', !!hit);
     row.querySelector('.cue-text').innerHTML = (hit ? highlightHtml(state.cues[i], q) : state.cues[i].html) + sub2Html(i);
@@ -859,6 +870,11 @@ function jumpMatch(dir){
   searchCount.textContent=(state.matchPos+1)+'/'+state.matches.length;
 }
 searchClear.addEventListener('click', ()=>{ searchInput.value=''; applySearch(); searchInput.focus(); });
+$('#btnCase').addEventListener('click', ()=>{
+  state.caseSensitive=!state.caseSensitive;
+  $('#btnCase').classList.toggle('on', state.caseSensitive);
+  saveSettings(); applySearch();
+});
 
 /* ================= Phụ đề 2 (bản dịch) ================= */
 function pairCues(a, b){
@@ -1579,6 +1595,7 @@ window.addEventListener('orientationchange', ()=>setTimeout(repositionActive,300
 /* ================= Init ================= */
 loadSettings();
 updateAutoPause(); updateCC();
+$('#btnCase').classList.toggle('on', state.caseSensitive);
 volSlider.value=video.muted?0:video.volume;
 icVol.style.display=video.muted||video.volume===0?'none':'';
 icMuted.style.display=video.muted||video.volume===0?'':'none';
