@@ -64,6 +64,22 @@ Trình duyệt chỉ phát được codec mà nó hỗ trợ:
 - **MP4 (H.264/AAC), WebM**: chạy mọi nơi, kể cả iPhone.
 - **MKV/HEVC**: Chrome/Edge desktop thường chạy được (tuỳ máy); **iOS Safari không hỗ trợ** → nếu video đen/báo lỗi, convert sang MP4: `ffmpeg -i in.mkv -c:v libx264 -c:a aac out.mp4`
 
+### MKV: audio & phụ đề nhúng
+
+File MKV tải torrent thường có **audio E-AC-3 (DDP5.1) / DTS** — Chrome (nhất là trên Linux) **không decode** được các codec này → hình chạy nhưng **im lặng**. Ngoài ra, **phụ đề nhúng trong MKV web không đọc được** (browser không expose subtitle track của Matroska).
+
+Cách xử lý 1 lần bằng ffmpeg (video giữ nguyên, không re-encode — chỉ vài phút):
+
+```bash
+# 1. Extract phụ đề nhúng ra .srt (xem số track: ffprobe -i file.mkv)
+ffmpeg -i "video.mkv" -map 0:2 "video.srt"
+
+# 2. Remux audio sang AAC (video copy nguyên bản)
+ffmpeg -i "video.mkv" -map 0:v:0 -map 0:a:0 -c:v copy -c:a aac -b:a 320k -movflags +faststart "video.mp4"
+```
+
+Sau đó kéo–thả cặp `.mp4` + `.srt` vào app là có đủ tiếng + phụ đề. App cũng sẽ **tự cảnh báo** khi phát file mà browser decode không ra audio.
+
 ## Vì sao file không bị "upload"?
 
 Site tĩnh không có backend. Khi bạn chọn file, trình duyệt tạo một `blob:` URL — một tham chiếu đọc-only tới file trên ổ đĩa của bạn, chỉ tồn tại trong tab hiện tại. Không một byte nào của video/phụ đề rời khỏi máy. Vị trí xem dở được lưu trong `localStorage` của chính trình duyệt bạn.

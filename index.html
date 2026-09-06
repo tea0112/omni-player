@@ -487,7 +487,7 @@ kbd{
       </div>
     </div>
     <div class="transcript-list" id="transcriptList"></div>
-    <div class="tp-empty" id="tpEmpty">Chưa có phụ đề.<br>Bấm <b>Phụ đề</b> ở trên hoặc kéo–thả file <b>.srt / .vtt</b> vào.</div>
+    <div class="tp-empty" id="tpEmpty">Chưa có phụ đề.<br>Bấm <b>Phụ đề</b> ở trên hoặc kéo–thả file <b>.srt / .vtt</b> vào.<br><span style="color:#777;font-size:12px">Phụ đề nhúng trong MKV/MP4 web không đọc được — cần file .srt riêng.</span></div>
   </aside>
 </main>
 
@@ -1125,6 +1125,7 @@ function setVideo(file){
   state.videoFile=file; state.videoUrl=URL.createObjectURL(file);
   errOverlay.hidden=true; welcome.hidden=true;
   fileChip.textContent=file.name;
+  state.audioWarned=false;
   setLoop(null); state.activeRow=-1; state.pendingEnd=null; lastShownSec=-1;
   video.src=state.videoUrl; video.load();
   setupMediaSession(file);
@@ -1209,6 +1210,23 @@ function mediaSessionPosition(){
       navigator.mediaSession.setPositionState({duration:video.duration, playbackRate:video.playbackRate, position:Math.min(video.currentTime,video.duration)});
   }catch{}
 }
+
+/* Cảnh báo khi video chạy mà không decode được audio (E-AC-3/DTS…) — best effort */
+video.addEventListener('playing', ()=>{
+  if(state.audioWarned) return;
+  setTimeout(()=>{
+    if(video.paused || state.audioWarned) return;
+    let silent=null;
+    try{
+      if('mozHasAudio' in video) silent=!video.mozHasAudio;
+      else if('webkitAudioDecodedByteCount' in video) silent=(video.webkitAudioDecodedByteCount|0)===0;
+    }catch{}
+    if(silent){
+      state.audioWarned=true;
+      toast('Không có tiếng: audio codec của file (E-AC-3 / DTS…) browser không hỗ trợ. Convert audio sang AAC — lệnh có trong README.', {label:'Xem README trên GitHub', fn:()=>window.open('https://github.com/tea0112/omni-player#mkv-audio--phu-%C4%91%E1%BB%81-nh%C3%BAng','_blank')});
+    }
+  },1500);
+});
 
 /* ================= Bảng phím tắt ================= */
 const SHORTCUTS=[
