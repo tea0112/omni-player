@@ -4,6 +4,13 @@ Trình phát video **tĩnh 1 file** để xem phim + luyện tiếng Anh với p
 
 **100% local-first:** video và file phụ đề chỉ được **đọc trực tiếp trong trình duyệt** từ máy bạn (qua File API + `blob:` URL). Không có server, không upload đi đâu cả.
 
+### Nhớ toàn bộ trạng thái — reload thoải mái
+
+- **"Tiếp tục xem"** trên màn hình chào: danh sách mọi file đã mở kèm vị trí + % + thời gian; bấm ▶ để xem tiếp.
+- Trên **Chrome/Edge/Android Chrome**: app lưu `FileSystemHandle` vào IndexedDB — bấm ▶ là video **tự gắn lại khỏi chọn lại file** (duyệt 1 lần quyền đọc), phụ đề đi kèm cũng tự nạp. Reload/F5 không còn là mất trắng, và app bỏ cảnh báo thoát vì biết bạn quay lại được.
+- **Safari/Firefox/iOS**: bấm ▶ mở picker, chọn đúng file là app **tự nhảy tới chỗ đang xem dở** (khớp theo tên + dung lượng + ngày sửa) và nhắc ghép phụ đề đã nhớ.
+- Tốc độ, âm lượng, auto-pause, bước tua, ẩn/hiện phụ đề — tất cả tự lưu và tự khôi phục.
+
 ## Chạy ngay
 
 Mở thẳng file `index.html` (double-click) — không cần cài gì cả. Hoặc chạy server local:

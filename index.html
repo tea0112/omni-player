@@ -193,6 +193,22 @@ svg{display:block}
 }
 .wdrop.drag{border-color:var(--acc); color:var(--tx)}
 .wdrop b{color:var(--tx)}
+.whist{margin-top:18px; text-align:left}
+.whist h3{margin:0 0 8px; font-size:12px; color:var(--tx2); text-transform:uppercase; letter-spacing:.6px}
+.hist-row{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; background:var(--bg3); margin-bottom:6px}
+.hist-row:hover{background:#2b2b2b}
+.hist-play{width:38px; height:38px; border-radius:50%; background:var(--acc); display:grid; place-items:center; flex:none; min-width:38px; min-height:38px}
+.hist-play:hover{background:#ff5252}
+.hist-play svg{width:16px; height:16px; fill:#fff; margin-left:2px}
+.hist-main{flex:1; min-width:0}
+.hist-name{font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.hist-bar{height:3px; background:#ffffff22; border-radius:2px; margin:5px 0 4px; overflow:hidden}
+.hist-bar i{display:block; height:100%; background:var(--acc)}
+.hist-meta{font-size:11.5px; color:var(--tx2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.hist-nofh{color:#777}
+.hist-del{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; flex:none; opacity:.45}
+.hist-del:hover{opacity:1; background:#ffffff14}
+.hist-del svg{width:13px; height:13px; fill:#ccc}
 
 /* ===== Transcript panel ===== */
 .transcript-panel{
@@ -453,6 +469,10 @@ kbd{
             <button class="tb" id="btnOpenVideo2">Chọn video</button>
             <button class="tb ghost" id="btnOpenSub2">Chọn phụ đề (.srt / .vtt)</button>
           </div>
+          <div class="whist" id="histWrap" hidden>
+            <h3>Tiếp tục xem</h3>
+            <div id="histList"></div>
+          </div>
           <div class="wdrop" id="wdrop">…hoặc <b>kéo–thả</b> video + phụ đề vào đây<br>Tự dừng cuối câu · lặp đoạn A–B · transcript như YouTube</div>
         </div>
       </div>
@@ -581,6 +601,7 @@ const state = {
   loop:null,              // {a:cueIdx, b:cueIdx|null}
   seekStep:5, subsVisible:true, autoScroll:true,
   matches:[], matchPos:-1,
+  resumeKey:null, hasVHandle:false, hasSHandle:false, subMeta:null, pendingSub:null,
 };
 
 /* ================= Settings (toàn cục) ================= */
@@ -1118,30 +1139,65 @@ function surfaceTap(e){
 surface.addEventListener('pointerup', e=>{ if(e.button===0) surfaceTap(e); });
 
 /* ================= Mở file ================= */
-function setVideo(file){
+function setVideo(file, handle){
   if(!file) return;
   saveSession();
   if(state.videoUrl) URL.revokeObjectURL(state.videoUrl);
   state.videoFile=file; state.videoUrl=URL.createObjectURL(file);
   errOverlay.hidden=true; welcome.hidden=true;
   fileChip.textContent=file.name;
-  state.audioWarned=false;
   setLoop(null); state.activeRow=-1; state.pendingEnd=null; lastShownSec=-1;
+  state.audioWarned=false;
+  state.resumeKey=sessionKey(file);
+  state.hasVHandle=!!handle; state.hasSHandle=false;
+  if(handle) idbSet('v:'+state.resumeKey, handle);
+  if(state.pendingSub){ const p=state.pendingSub; state.pendingSub=null; setSubtitle(p.file, p.handle); }
+  historyUpsert({hasVHandle:!!handle, hasSHandle:false, sub:null});
+  if(state.subHint && !handle){ const h=state.subHint; state.subHint=null; toast('Xem tiếp "'+h.name+'" — chọn lại phụ đề để đồng bộ.', {label:'Chọn phụ đề', fn:()=>pickSubtitle()}); } else state.subHint=null;
   video.src=state.videoUrl; video.load();
   setupMediaSession(file);
   toast('Đang mở: '+file.name);
 }
-async function setSubtitle(file){
+async function setSubtitle(file, handle){
   if(!file) return;
   state.subFile=file;
   state.subBuffer=await file.arrayBuffer();
   const switched=applyEncoding('utf-8',{auto:true});
   if(!switched) toast('Phụ đề: '+file.name+' ('+state.cues.length+' câu)');
+  if(state.videoFile){
+    state.subMeta={name:file.name,size:file.size,lastModified:file.lastModified};
+    state.hasSHandle=!!handle;
+    if(handle) idbSet('s:'+state.resumeKey, handle);
+    historyUpsert({sub:state.subMeta, hasSHandle:!!handle});
+  } else {
+    state.pendingSub={file,handle}; // mở phụ đề trước video -> ghép sau khi chọn video
+  }
 }
-$('#btnOpenVideo').addEventListener('click', ()=>$('#fileVideo').click());
-$('#btnOpenVideo2').addEventListener('click', ()=>$('#fileVideo').click());
-$('#btnOpenSub').addEventListener('click', ()=>$('#fileSub').click());
-$('#btnOpenSub2').addEventListener('click', ()=>$('#fileSub').click());
+/* Picker ưu tiên File System Access (Chrome/Edge/Android) — còn handle để lần sau mở lại không cần chọn file */
+async function pickVideo(){
+  if(window.showOpenFilePicker){
+    try{
+      const [h]=await showOpenFilePicker({multiple:false, types:[{description:'Video', accept:{'video/*':['.mp4','.mkv','.webm','.m4v','.mov','.avi','.ts','.ogv','.3gp']}}]});
+      setVideo(await h.getFile(), h); return;
+    }catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  $('#fileVideo').click();
+}
+async function pickSubtitle(){
+  if(window.showOpenFilePicker){
+    try{
+      const [h]=await showOpenFilePicker({multiple:false});
+      const f=await h.getFile();
+      if(!/\.(srt|vtt)$/i.test(f.name)){ toast('Chỉ nhận file .srt hoặc .vtt'); return; }
+      setSubtitle(f, h); return;
+    }catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  $('#fileSub').click();
+}
+$('#btnOpenVideo').addEventListener('click', pickVideo);
+$('#btnOpenVideo2').addEventListener('click', pickVideo);
+$('#btnOpenSub').addEventListener('click', pickSubtitle);
+$('#btnOpenSub2').addEventListener('click', pickSubtitle);
 $('#fileVideo').addEventListener('change', e=>{ setVideo(e.target.files[0]); e.target.value=''; });
 $('#fileSub').addEventListener('change', e=>{ setSubtitle(e.target.files[0]); e.target.value=''; });
 
@@ -1150,15 +1206,48 @@ let dragDepth=0;
 window.addEventListener('dragenter', e=>{ e.preventDefault(); dragDepth++; dragOverlay.hidden=false; wdrop.classList.add('drag'); });
 window.addEventListener('dragover', e=>e.preventDefault());
 window.addEventListener('dragleave', e=>{ e.preventDefault(); if(--dragDepth<=0){ dragDepth=0; dragOverlay.hidden=true; wdrop.classList.remove('drag'); } });
-window.addEventListener('drop', e=>{
+window.addEventListener('drop', async e=>{
   e.preventDefault(); dragDepth=0; dragOverlay.hidden=true; wdrop.classList.remove('drag');
-  const files=[...(e.dataTransfer?.files||[])];
-  const sub=files.find(f=>/\.(srt|vtt)$/i.test(f.name));
-  const vid=files.find(f=>f.type.startsWith('video/')||/\.(mp4|webm|mkv|m4v|mov|avi|ts|3gp|ogv)$/i.test(f.name));
-  if(vid) setVideo(vid);
-  if(sub) setSubtitle(sub);
+  const items=[...(e.dataTransfer?.items||[])];
+  let vid=null, sub=null;
+  for(const it of items){
+    if(it.kind!=='file') continue;
+    let handle=null, file=null;
+    try{ if(it.getAsFileSystemHandle){ handle=await it.getAsFileSystemHandle(); if(handle) file=await handle.getFile(); } }catch{}
+    if(!file) file=it.getAsFile();
+    if(!file) continue;
+    if(/\.(srt|vtt)$/i.test(file.name)){ if(!sub) sub={file,handle}; }
+    else if(file.type.startsWith('video/')||/\.(mp4|webm|mkv|m4v|mov|avi|ts|3gp|ogv)$/i.test(file.name)){ if(!vid) vid={file,handle}; }
+  }
+  if(vid) setVideo(vid.file, vid.handle);
+  if(sub) setSubtitle(sub.file, sub.handle);
   if(!vid && !sub) toast('File không nhận diện được — cần video hoặc .srt/.vtt');
 });
+
+/* ================= Lịch sử & handle (IndexedDB) ================= */
+const HIST_KEY='op:history:v1';
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const rq=indexedDB.open('omni-player',1);
+    rq.onupgradeneeded=()=>rq.result.createObjectStore('kv');
+    rq.onsuccess=()=>res(rq.result);
+    rq.onerror=()=>rej(rq.error);
+  });
+}
+async function idbSet(k,v){ try{ const db=await idbOpen(); await new Promise((res,rej)=>{ const tx=db.transaction('kv','readwrite'); tx.objectStore('kv').put(v,k); tx.oncomplete=res; tx.onerror=()=>rej(tx.error); }); }catch{} }
+async function idbGet(k){ try{ const db=await idbOpen(); return await new Promise((res)=>{ const rq=db.transaction('kv').objectStore('kv').get(k); rq.onsuccess=()=>res(rq.result||null); rq.onerror=()=>res(null); }); }catch{ return null; } }
+function historyGet(){ try{ return JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); }catch{ return []; } }
+function historySave(list){ try{ localStorage.setItem(HIST_KEY, JSON.stringify(list.slice(0,20))); }catch{} }
+function historyUpsert(patch){
+  if(!state.videoFile) return;
+  const key=sessionKey(state.videoFile), list=historyGet();
+  const i=list.findIndex(e=>e.key===key);
+  const e=(i>=0?list[i]:{key, t:0, d:0});
+  Object.assign(e,{name:state.videoFile.name,size:state.videoFile.size,lastModified:state.videoFile.lastModified,at:Date.now()},patch);
+  if(i>=0) list.splice(i,1);
+  list.unshift(e); historySave(list);
+}
+function historyTouch(t,d){ const list=historyGet(), key=state.resumeKey; if(!key) return; const e=list.find(x=>x.key===key); if(!e) return; e.t=t; e.d=d; e.at=Date.now(); historySave(list); }
 
 /* ================= Session tự lưu / tự phục hồi ================= */
 const sessionKey=f=>'op:pos:v1:'+f.name+':'+f.size+':'+f.lastModified;
@@ -1167,6 +1256,7 @@ function saveSession(){
   const t=video.currentTime;
   if(t<3) return;
   try{ localStorage.setItem(sessionKey(state.videoFile), JSON.stringify({t, d:video.duration, at:Date.now()})); }catch{}
+  historyTouch(t, video.duration);
 }
 function tryRestoreSession(){
   if(!state.videoFile) return;
@@ -1180,9 +1270,66 @@ function tryRestoreSession(){
     toast('Tiếp tục từ '+fmt(rec.t), {label:'Phát từ đầu', fn:()=>{ seekTo(0); }});
   }
 }
-window.addEventListener('beforeunload', e=>{ saveSession(); if(state.videoFile){ e.preventDefault(); e.returnValue=''; } });
+/* Có handle lưu sẵn (Chrome/Edge) -> reload xong bấm 1 nút là quay lại được, không cần cảnh báo */
+window.addEventListener('beforeunload', e=>{
+  saveSession();
+  if(state.videoFile && !state.hasVHandle){ e.preventDefault(); e.returnValue=''; }
+});
 window.addEventListener('pagehide', saveSession);
 document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveSession(); });
+
+/* ================= "Tiếp tục xem" trên màn hình chào ================= */
+function fmtAgo(at){
+  const s=(Date.now()-at)/1000;
+  if(s<3600) return Math.max(1,Math.floor(s/60))+' phút trước';
+  if(s<86400) return Math.floor(s/3600)+' giờ trước';
+  return Math.floor(s/86400)+' ngày trước';
+}
+function renderHistory(){
+  const list=historyGet().filter(e=>e.d>0);
+  const wrap=$('#histWrap'), box=$('#histList');
+  wrap.hidden=list.length===0;
+  box.innerHTML='';
+  for(const e of list){
+    const pct=e.d?Math.min(100,Math.round(e.t/e.d*100)):0;
+    const row=document.createElement('div');
+    row.className='hist-row';
+    row.innerHTML='<button class="hist-play" title="Xem tiếp">'+
+      '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>'+
+      '<div class="hist-main"><div class="hist-name"></div>'+
+      '<div class="hist-bar"><i style="width:'+pct+'%"></i></div>'+
+      '<div class="hist-meta">'+fmt(e.t)+' / '+fmt(e.d)+' · '+pct+'% · '+fmtAgo(e.at)+
+      (e.sub?' · 📄 '+e.sub.name:'')+(e.hasVHandle?'':' · <span class="hist-nofh">chọn lại file khi bấm</span>')+'</div></div>'+
+      '<button class="hist-del" title="Xoá khỏi lịch sử"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button>';
+    row.querySelector('.hist-name').textContent=e.name;
+    row.querySelector('.hist-play').addEventListener('click', ()=>continueEntry(e));
+    row.querySelector('.hist-del').addEventListener('click', ()=>{
+      historySave(historyGet().filter(x=>x.key!==e.key));
+      idbSet('v:'+e.key, null); idbSet('s:'+e.key, null);
+      renderHistory();
+    });
+    box.appendChild(row);
+  }
+}
+async function continueEntry(e){
+  let handle=null;
+  if(e.hasVHandle) handle=await idbGet('v:'+e.key);
+  if(handle){
+    try{
+      let perm='granted';
+      if(handle.queryPermission) perm=await handle.queryPermission({mode:'read'});
+      if(perm!=='granted' && handle.requestPermission) perm=await handle.requestPermission({mode:'read'});
+      if(perm==='granted'){
+        setVideo(await handle.getFile(), handle);
+        if(e.sub && e.hasSHandle){ const sh=await idbGet('s:'+e.key); if(sh){ try{ setSubtitle(await sh.getFile(), sh); }catch{} } }
+        return;
+      }
+    }catch(err){ /* handle chết (file đổi chỗ) -> rơi xuống chọn lại */ }
+    toast('Không đọc lại được file đã lưu — chọn lại video nhé.');
+  }
+  state.subHint=e.sub||null;
+  $('#fileVideo').click(); // Safari/Firefox/iOS hoặc handle mất: chọn lại, app tự nhảy tới chỗ dở
+}
 
 /* ================= Media Session ================= */
 function setupMediaSession(file){
@@ -1346,6 +1493,7 @@ $('#btnBack').title='Tua lại '+state.seekStep+'s (← / J)';
 $('#btnFwd').title='Tua tới '+state.seekStep+'s (→ / L)';
 if(isIOS) document.body.classList.add('ios');
 updateAppHeight();
+renderHistory();
 </script>
 </body>
 </html>
