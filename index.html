@@ -238,7 +238,11 @@ svg{display:block}
 .case-tgl{flex:none; width:28px; height:26px; border-radius:6px; display:grid; place-items:center; font-size:12px; font-weight:700; color:var(--tx2); border:1px solid transparent}
 .case-tgl:hover{background:#ffffff14}
 .case-tgl.on{color:var(--acc2); border-color:var(--acc)}
-.tp-toggles{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap}
+.tp-toggles{display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; align-items:center}
+.speed-chips{display:inline-flex; gap:4px; margin-left:auto}
+.spd{padding:4px 9px; border-radius:999px; background:var(--bg3); color:var(--tx2); font-size:12px; min-height:26px; font-weight:600}
+.spd:hover{color:var(--tx); background:#2e2e2e}
+.spd.on{background:rgba(240,64,64,.16); color:var(--acc2)}
 .tgl{
   display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px;
   background:var(--bg3); color:var(--tx2); font-size:12.5px; min-height:30px; white-space:nowrap;
@@ -251,11 +255,21 @@ svg{display:block}
 
 .transcript-list{flex:1; overflow-y:auto; padding:8px 6px calc(10px + env(safe-area-inset-bottom)); overscroll-behavior:contain}
 .cue{
-  display:grid; grid-template-columns:26px 56px 1fr; gap:4px; align-items:start;
+  display:grid; grid-template-columns:52px 56px 1fr; gap:4px; align-items:start;
   padding:7px 10px 7px 4px; margin:1px 4px; border-radius:8px; cursor:pointer;
-  border-left:3px solid transparent;
+  border-left:3px solid transparent; position:relative;
 }
 .cue:hover{background:#1c1c1c}
+.cue-btns{display:flex; gap:2px; justify-content:flex-end}
+.cue-loop,.cue-copy{
+  width:24px; height:26px; border-radius:6px; display:grid; place-items:center;
+  color:#666; opacity:0; transition:opacity .12s;
+}
+.cue:hover .cue-loop, .cue:hover .cue-copy,
+.cue.loop-a .cue-loop, .cue.loop-b .cue-loop{opacity:1}
+.cue.loop-a .cue-loop, .cue.loop-b .cue-loop{color:var(--acc2)}
+.cue-loop:hover, .cue-copy:hover{background:#ffffff1a}
+.cue-loop svg, .cue-copy svg{width:13px;height:13px;fill:currentColor}
 .cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px}
 .cue-text{font-size:14.5px; color:#ddd; white-space:pre-line; word-break:break-word}
 .cue.active{background:#303030}
@@ -267,14 +281,7 @@ svg{display:block}
 .cue.hit{opacity:.32}
 .cue.match{opacity:1}
 .cue.goto{outline:2px solid var(--acc2); outline-offset:-2px}
-.cue-loop{
-  width:26px; height:26px; border-radius:50%; display:grid; place-items:center;
-  color:#666; opacity:0; transition:opacity .12s;
-}
-.cue:hover .cue-loop, .cue.loop-a .cue-loop, .cue.loop-b .cue-loop{opacity:1}
 .cue.loop-a .cue-loop, .cue.loop-b .cue-loop{color:var(--acc2)}
-.cue-loop:hover{background:#ffffff1a}
-.cue-loop svg{width:14px;height:14px;fill:currentColor}
 .cue-text mark{background:#f5c400; color:#111; border-radius:3px; padding:0 1px}
 .cue-sub2{font-size:12.5px; color:#8fb4ff; margin-top:3px; font-weight:400; white-space:pre-line}
 .cue.active .cue-sub2{color:#a8c6ff}
@@ -524,6 +531,7 @@ kbd{
           <svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg>
           Đóng
         </button>
+        <span class="speed-chips" id="speedChips" title="Tốc độ phát"></span>
       </div>
     </div>
     <div class="transcript-list" id="transcriptList"></div>
@@ -822,8 +830,11 @@ function renderTranscript(){
     const c=cues[i];
     const row=document.createElement('div');
     row.className='cue'; row.dataset.i=i;
-    row.innerHTML='<button class="cue-loop" title="Lặp câu / chọn đoạn A–B">'+
+    row.innerHTML='<div class="cue-btns">'+
+      '<button class="cue-loop" title="Lặp câu / chọn đoạn A–B">'+
       '<svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>'+
+      '<button class="cue-copy" title="Copy câu (+ timestamp)">'+
+      '<svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg></button></div>'+
       '<span class="cue-time">'+fmt(c.start)+'</span>'+
       '<div class="cue-text">'+c.html+sub2Html(i)+'</div>';
     frag.appendChild(row); rows.push(row);
@@ -835,11 +846,27 @@ list.addEventListener('click', e=>{
   const row=e.target.closest('.cue'); if(!row) return;
   const i=+row.dataset.i;
   if(e.target.closest('.cue-loop')) loopClick(i);
+  else if(e.target.closest('.cue-copy')) copyCue(i);
   else{
     seekTo(state.cues[i].start+0.001);
     showControls();
   }
 });
+function copyCue(i){
+  const c=state.cues[i];
+  const text='['+fmt(c.start)+'] '+c.text.replace(/\n/g,' ');
+  const done=()=>toast('Đã copy: '+c.text.replace(/\n/g,' ').slice(0,40)+(c.text.replace(/\n/g,' ').length>40?'…':''));
+  const fallback=()=>{
+    const ta=document.createElement('textarea');
+    ta.value=text; ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch{ toast('Không copy được — browser chặn clipboard'); }
+    ta.remove();
+  };
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else fallback();
+}
 /* user đang đọc → tạm ngưng auto-scroll 3s */
 const markUserScroll=()=>{ state.userScrollUntil=Date.now()+3000; };
 list.addEventListener('wheel', markUserScroll, {passive:true});
@@ -1119,7 +1146,7 @@ video.addEventListener('play', ()=>{ state.playing=true; recomputePendingEnd(); 
 video.addEventListener('pause', ()=>{ state.playing=false; state.pendingEnd=null; updatePlayUI(); showControls(false); saveSession(); mediaSessionSync(); });
 video.addEventListener('seeked', ()=>{ if(state.playing) recomputePendingEnd(); });
 video.addEventListener('ended', ()=>{ saveSession(); });
-video.addEventListener('ratechange', ()=>{ speedLabel.textContent=(Math.round(video.playbackRate*100)/100)+'×'; saveSettings(); mediaSessionPosition(); });
+video.addEventListener('ratechange', ()=>{ speedLabel.textContent=(Math.round(video.playbackRate*100)/100)+'×'; buildSpeedChips(); saveSettings(); mediaSessionPosition(); });
 video.addEventListener('volumechange', ()=>{ icVol.style.display=video.muted||video.volume===0?'none':''; icMuted.style.display=video.muted||video.volume===0?'':'none'; volSlider.value=video.muted?0:video.volume; saveSettings(); });
 video.addEventListener('loadedmetadata', ()=>{
   tDur.textContent=fmt(video.duration);
@@ -1193,6 +1220,17 @@ $('#btnMute').addEventListener('click', ()=>{ video.muted=!video.muted; });
 volSlider.addEventListener('input', ()=>{ video.muted=false; video.volume=+volSlider.value; });
 
 const RATES=[0.25,0.5,0.75,1,1.25,1.5,1.75,2];
+function buildSpeedChips(){
+  const box=$('#speedChips'); if(!box) return;
+  box.innerHTML='';
+  for(const r of [0.75,1,1.25,1.5,2]){
+    const b=document.createElement('button');
+    b.className='spd'; b.textContent=(Math.round(r*100)/100)+'×';
+    b.classList.toggle('on', Math.abs(r-video.playbackRate)<0.01);
+    b.addEventListener('click', ()=>{ video.playbackRate=r; });
+    box.appendChild(b);
+  }
+}
 function buildSpeedMenu(){
   speedMenu.innerHTML='';
   for(const r of RATES){
@@ -1694,6 +1732,7 @@ volSlider.value=video.muted?0:video.volume;
 icVol.style.display=video.muted||video.volume===0?'none':'';
 icMuted.style.display=video.muted||video.volume===0?'':'none';
 speedLabel.textContent=(Math.round(video.playbackRate*100)/100)+'×';
+buildSpeedChips();
 $('#btnBack').title='Tua lại '+state.seekStep+'s (← / J)';
 $('#btnFwd').title='Tua tới '+state.seekStep+'s (→ / L)';
 if(isIOS) document.body.classList.add('ios');
