@@ -70,7 +70,15 @@ Mobile: tap video = hiện/ẩn control · **double-tap trái/phải = tua ∓ b
 
 ## Chạy trên điện thoại / tablet
 
-Giao diện tự nhận diện: điện thoại dọc (video trên, transcript dưới), điện thoại ngang (video full màn, transcript trượt vào qua nút), tablet/desktop (song song kiểu YouTube). Trên iPhone nhớ bật chế độ xoay dọc không khoá để dùng landscape.
+Giao diện tự nhận diện: **điện thoại + iPad dọc** (video trên, transcript dưới), **điện thoại ngang** (video full màn, transcript trượt vào qua nút), tablet/desktop ngang (song song kiểu YouTube).
+
+**Trên màn cảm ứng:**
+- Cụm nút giữa video luôn hiện: **tua-lùi · play/pause · tua-tới** (theo bước tua đã đặt)
+- **Tap video** = phát/dừng · **double-tap trái/phải** = tua · **swipe ngang** = kéo tua với HUD thời gian
+- **UI không bao giờ tự ẩn** — thanh điều khiển, transcript, nút trên mỗi câu luôn sẵn sàng
+- Volume: bấm icon loa → thanh chỉnh dọc; Search: bấm kính lúp → mở ô tìm
+
+Trên iPhone nhớ bật chế độ xoay dọc không khoá để dùng landscape. Trên iOS, nút ▶ "Tiếp tục xem" sẽ mở bảng chọn file của hệ thống — chọn **Choose File** rồi trỏ tới video là app tự nhảy tới chỗ đang xem dở.
 
 ## Deploy
 
