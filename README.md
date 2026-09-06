@@ -33,6 +33,13 @@ python3 -m http.server 8080
    - **⚙ Cài đặt**: đổi bước tua (mặc định 5s), nhảy tới thời điểm, đổi bảng mã phụ đề khi tiếng Việt lỗi font, và **giao diện phụ đề** — cỡ chữ, vị trí dọc, nền (không/mờ/đậm), màu chữ (trắng/vàng/xanh), kiểu font — xem trước live, tự lưu
    - **Cuộn chuột trên vùng video** để chỉnh âm lượng (HUD % hiện ngay); lăn chuột trên **progress bar** để tua
 
+## 📖 Tra từ + Sổ từ vựng (Anki)
+
+- **Double-click vào bất kỳ từ nào trong transcript** → popup ngay tại chỗ: nghĩa tiếng Việt, định nghĩa tiếng Anh (kèm từ loại + ví dụ), **đọc từ bằng giọng chuẩn** (TTS)
+- Nguồn: dictionaryapi.dev → Datamuse → Wiktionary (tự chuyển nguồn nếu một cái chạm) + MyMemory (dịch VI) — **miễn phí, không cần key**
+- Bấm **＋ Lưu vào sổ từ** → từ được lưu kèm nguồn (video + thời điểm) — bấm mốc thời gian trong sổ để **nhảy đúng câu phim** đó
+- Nút **📖 Sổ từ vựng** trên thanh công cụ: xem tất cả, đọc lại, xoá, và **Export CSV** — import thẳng vào **Anki** (Front = từ, Back = nghĩa + định nghĩa + nguồn)
+
 ## 🤖 AI phân tích câu thoại (khung 6 mục)
 
 Hover một câu trong transcript → bấm **✨** → video tự pause và AI phân tích câu đó theo **khung cố định 6 mục**, render ngay dưới dòng phụ đề (không rời mắt):
