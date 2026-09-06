@@ -31,7 +31,26 @@ python3 -m http.server 8080
    - Nút **Tự dừng mỗi câu** (phím `P`): player tự pause khi hết câu — bấm Space để nghe lại / sang câu mới
    - **Phụ đề 2** (trong transcript): thêm bản dịch song song — 2 dòng trong transcript + 2 lớp trên video, ghép tự động theo thời gian; nút ẩn/hiện hoặc gỡ bỏ
    - **⚙ Cài đặt**: đổi bước tua (mặc định 5s), nhảy tới thời điểm, đổi bảng mã phụ đề khi tiếng Việt lỗi font, và **giao diện phụ đề** — cỡ chữ, vị trí dọc, nền (không/mờ/đậm), màu chữ (trắng/vàng/xanh), kiểu font — xem trước live, tự lưu
-   - **Cuộn chuột trên vùng video** để chỉnh âm lượng (HUD % hiện ngay)
+   - **Cuộn chuột trên vùng video** để chỉnh âm lượng (HUD % hiện ngay); lăn chuột trên **progress bar** để tua
+
+## 🤖 AI phân tích câu thoại (khung 6 mục)
+
+Hover một câu trong transcript → bấm **✨** → video tự pause và AI phân tích câu đó theo **khung cố định 6 mục**, render ngay dưới dòng phụ đề (không rời mắt):
+
+1. **Phiên âm IPA** (General American) — chỉ từ A2+, kèm nhãn CEFR
+2. **Native Connected Speech** — nhược âm, nối âm, glottal stop [ʔ], nuốt /t/… kèm chuỗi `→ /IPA/`
+3. **Phân tích ngữ pháp** — cấu trúc, thì, từng cụm
+4. **Dịch nghĩa & từ vựng** + 2 bản dịch tiếng Việt tự nhiên
+5. **Meaning in English (A2)**
+6. **Bối cảnh** — AI đọc toàn bộ phụ đề để giải thích cảnh phim
+
+**Cấu hình:** ⚙ Cài đặt → 🤖 AI: Provider (Gemini/OpenAI/OpenRouter/Custom OpenAI-compatible) + API key + model. Key chỉ lưu trong máy bạn, gọi thẳng tới provider — app không có server.
+
+**Tiết kiệm chi phí:**
+- Kết quả phân tích **cache 2 lớp** (RAM + localStorage theo từng file) — hỏi lại câu cũ = 0ms 0₫, sống qua reload
+- **Gemini explicit context caching**: ngữ cảnh toàn phim "bơm" 1 lần/h giờ, các câu hỏi sau chỉ gửi ~1KB; hết hạn tự tạo lại
+- OpenAI/OpenRouter: context cố định đầu request → tự hưởng automatic prompt caching
+- Không muốn gửi cả phim? Đổi ngữ cảnh sang "±5 câu" trong ⚙
 
 ### Phím tắt
 

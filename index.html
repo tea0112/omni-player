@@ -293,6 +293,33 @@ svg{display:block}
 .cue.loop-a .cue-loop, .cue.loop-b .cue-loop{color:var(--acc2)}
 .cue-actions .cue-copy:hover{color:#8fb4ff}
 .cue-actions svg{width:13px;height:13px;fill:currentColor}
+.cue-ai{width:26px; height:26px; display:grid; place-items:center; color:#999}
+.cue-ai:hover{color:var(--acc2); background:#ffffff1a}
+.cue-ai svg{width:13px; height:13px; fill:currentColor}
+
+/* ===== AI accordion ===== */
+.ai-acc{
+  margin:2px 4px 6px 12px; background:#191919; border:1px solid #3d3d3d;
+  border-left:3px solid var(--acc); border-radius:10px; padding:10px 12px;
+}
+.ai-acc .ai-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px}
+.ai-acc .ai-title{font-size:12px; font-weight:700; letter-spacing:.3px; color:var(--acc2)}
+.ai-acc .ai-head-r{display:flex; align-items:center; gap:4px}
+.ai-acc .ai-head button{min-width:26px; height:26px; border-radius:6px; display:grid; place-items:center; font-size:11.5px; color:#bbb; padding:0 6px}
+.ai-acc .ai-head button:hover{background:#ffffff14; color:#fff}
+.ai-acc .ai-head button svg{width:13px; height:13px; fill:currentColor}
+.ai-acc h5{margin:10px 0 4px; font-size:12.5px; color:var(--acc2)}
+.ai-acc h5:first-child{margin-top:0}
+.ai-acc p{margin:4px 0; font-size:13.5px; color:#ddd; line-height:1.55}
+.ai-acc ul{margin:4px 0 6px 18px; padding:0}
+.ai-acc li{font-size:13.5px; color:#ddd; margin:2px 0; line-height:1.5}
+.ai-acc code{background:#2a2a2a; padding:1px 5px; border-radius:4px; font-size:12px}
+.ai-acc blockquote{margin:4px 0; padding:2px 10px; border-left:2px solid #555; color:#bbb}
+.ai-acc .ai-load{display:flex; align-items:center; gap:10px; color:var(--tx2); font-size:13px; padding:4px 0}
+.ai-acc .spin{width:14px; height:14px; border:2px solid #ffffff2e; border-top-color:var(--acc); border-radius:50%; animation:aispin .7s linear infinite; flex:none}
+@keyframes aispin{to{transform:rotate(360deg)}}
+.ai-acc .ai-err{color:#ff8a80; font-size:13px; line-height:1.5}
+.ai-acc .ai-retry{color:var(--acc2); font-weight:600; margin-left:8px}
 .cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px}
 /* màn cảm ứng không có hover -> nút luôn hiện (đè lên ô thời gian) */
 @media (hover:none) and (pointer:coarse){
@@ -605,6 +632,44 @@ kbd{
       <div class="hint">App tự phát hiện lỗi font và đề xuất bảng mã; chọn thủ công nếu cần.</div>
     </div>
     <div class="field">
+      <label>🤖 AI — phân tích câu thoại (khung 6 mục)</label>
+      <div class="row">
+        <div class="slabel"><span>Provider</span>
+          <select id="aiProvider">
+            <option value="gemini">Gemini (Google)</option>
+            <option value="openai">OpenAI</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="custom">Custom (OpenAI-compat)</option>
+          </select>
+        </div>
+        <div class="slabel"><span>Model</span><input type="text" id="aiModel" placeholder="gemini-2.0-flash"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div class="slabel" style="flex:2.2"><span>API Key (lưu máy bạn, gọi thẳng tới provider)</span>
+          <div class="row" style="flex-wrap:nowrap">
+            <input type="password" id="aiKey" placeholder="dán API key…" autocomplete="off" style="flex:1; min-width:0">
+            <button class="preset" id="aiKeyEye" title="Hiện/ẩn key">👁</button>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px" id="aiBaseRow">
+        <div class="slabel"><span>Base URL (Custom — tương thích OpenAI)</span>
+          <input type="text" id="aiBase" placeholder="http://localhost:8801/v1"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div class="slabel"><span>Ngữ cảnh gửi AI</span>
+          <select id="aiContextSel">
+            <option value="full">Toàn bộ phim (chuẩn nhất)</option>
+            <option value="window">±5 câu (tiết kiệm token)</option>
+          </select>
+        </div>
+        <div class="slabel"><span>Ngôn ngữ giải thích</span>
+          <input type="text" id="aiLang" value="Tiếng Việt"></div>
+        <button class="preset" id="aiTest" style="align-self:flex-end; min-height:40px">Kiểm tra kết nối</button>
+      </div>
+      <div class="hint" id="aiStatus">Key chỉ nằm trong máy bạn. Gemini dùng context caching — ngữ cảnh bơm 1 lần/h giờ.</div>
+    </div>
+    <div class="field">
       <label>Giao diện phụ đề trên video</label>
       <div class="row">
         <div class="slabel"><span>Kích cỡ</span>
@@ -715,6 +780,8 @@ const state = {
   resumeKey:null, hasVHandle:false, hasSHandle:false, subMeta:null, pendingSub:null,
   sub2File:null, sub2Buffer:null, cues2:[], pairs2:null, sub2Visible:true, sub2Meta:null, hasS2Handle:false, pendingSub2:null,
   subStyle:{scale:1, pos:14, bg:'dim', color:'#ffffff', font:'default'},
+  ai:{provider:'gemini', key:'', model:'', base:'', context:'full', lang:'Tiếng Việt'},
+  aiCache:null, aiCacheMap:null, aiCtrl:null,
 };
 
 /* ================= Settings (toàn cục) ================= */
@@ -867,6 +934,7 @@ function sub2Html(i){
   return p?'<div class="cue-sub2">'+p.html+'</div>':'';
 }
 function renderTranscript(){
+  closeAiAcc();
   list.innerHTML=''; rows=[]; state.activeRow=-1; lastOverlayKey=null;
   const cues=state.cues;
   tpEmpty.hidden=cues.length>0;
@@ -881,6 +949,8 @@ function renderTranscript(){
       '<div class="cue-actions">'+
       '<button class="cue-loop" title="Lặp câu / chọn đoạn A–B">'+
       '<svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>'+
+      '<button class="cue-ai" title="AI phân tích câu (IPA · nói nhanh · ngữ pháp · dịch)">'+
+      '<svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25z"/></svg></button>'+
       '<button class="cue-copy" title="Copy câu">'+
       '<svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg></button></div>';
     frag.appendChild(row); rows.push(row);
@@ -893,6 +963,7 @@ list.addEventListener('click', e=>{
   const i=+row.dataset.i;
   if(e.target.closest('.cue-loop')) loopClick(i);
   else if(e.target.closest('.cue-copy')) copyCue(i);
+  else if(e.target.closest('.cue-ai')) aiAnalyze(i);
   else{
     seekTo(state.cues[i].start+0.001);
     showControls();
@@ -1058,6 +1129,214 @@ $('#btnSub2').addEventListener('click', ()=>{
 });
 $('#btnSub2Clear').addEventListener('click', clearSub2);
 $('#fileSub2').addEventListener('change', e=>{ loadSub2(e.target.files[0]); e.target.value=''; });
+
+/* ================= AI — phân tích câu thoại ================= */
+const AI_PROVIDERS={
+  gemini:{label:'Gemini', model:'gemini-2.0-flash'},
+  openai:{label:'OpenAI', model:'gpt-4o-mini', base:'https://api.openai.com/v1'},
+  openrouter:{label:'OpenRouter', model:'google/gemini-2.0-flash-001', base:'https://openrouter.ai/api/v1'},
+  custom:{label:'Custom', model:'gpt-3.5-turbo', base:''},
+};
+function aiSystemPrompt(lang){
+  return `You are an expert English-teaching assistant for Vietnamese speakers. You analyze ONE movie subtitle line using the film's full subtitle context.
+Respond in ${lang} following EXACTLY these 6 markdown sections, in this order, with these headings:
+
+### 1. IPA (General American)
+- Only words at CEFR A2 or above (skip trivial A1 words: the, a, an, in, on, at, was, is, to, of, and...).
+- Each bullet: **word** (CEFR): /IPA/ — add common variant in parentheses if any.
+
+### 2. Native Connected Speech
+- Phenomena: weak forms, consonant→vowel linking, glottal stop [ʔ], unreleased/flapped /t/.
+- Each bullet explains the phenomenon and shows the transformation: \`word word\` → **/IPA/**.
+
+### 3. Grammar
+- Sentence structure, tense choice, then phrase-by-phrase breakdown.
+
+### 4. Nghĩa tiếng Việt & từ vựng
+- Key words/phrases with Vietnamese meanings, then exactly 2 natural Vietnamese translations of the whole line.
+
+### 5. Meaning in English (A2)
+- Simple A2-level English explanation + key vocabulary bullets.
+
+### 6. Bối cảnh
+- Using the film context: what is happening, who speaks to whom, the purpose of this line, what it leads to.
+
+Rules: markdown only (###/**/*/lists/\`code\`); no HTML; be concise but complete.
+Output STRICT JSON only — no prose, no code fences:
+{"ipa":"markdown","connected_speech":"markdown","grammar":"markdown","meaning_vi":"markdown","meaning_en":"markdown","context":"markdown"}`;
+}
+function aiCtxText(idx){
+  const cues=state.cues;
+  let from=0, to=cues.length;
+  if(state.ai.context==='window'){ from=Math.max(0, idx-5); to=Math.min(cues.length, idx+6); }
+  return cues.slice(from,to).map(c=>'['+fmt(c.start)+'] '+c.text.replace(/\n/g,' ')).join('\n');
+}
+function aiCacheKey(cue){ return (state.resumeKey||'f')+'#'+cue.start.toFixed(3); }
+function aiCacheGet(k){
+  if(!state.aiCacheMap) state.aiCacheMap=new Map(Object.entries(JSON.parse(localStorage.getItem('op:ai:cache:'+(state.resumeKey||'f'))||'{}')));
+  return state.aiCacheMap.get(k)||null;
+}
+function aiCacheSet(k,v){
+  if(!state.aiCacheMap) state.aiCacheMap=new Map();
+  state.aiCacheMap.set(k,v);
+  let entries=[...state.aiCacheMap.entries()].sort((a,b)=>(b[1].at||0)-(a[1].at||0)).slice(0,200);
+  try{ localStorage.setItem('op:ai:cache:'+(state.resumeKey||'f'), JSON.stringify(Object.fromEntries(entries))); }catch{}
+}
+function closeAiAcc(){
+  const el=document.querySelector('.ai-acc'); if(el) el.remove();
+  if(state.aiCtrl){ state.aiCtrl.abort(); state.aiCtrl=null; }
+}
+function openAiAcc(idx){
+  closeAiAcc();
+  const row=rows[idx]; if(!row) return;
+  const div=document.createElement('div');
+  div.className='ai-acc';
+  div.innerHTML='<div class="ai-load"><span class="spin"></span> AI đang phân tích câu này…</div>';
+  row.after(div);
+  div.scrollIntoView({block:'nearest', behavior:'smooth'});
+}
+function renderAiAcc(idx, data){
+  const div=document.querySelector('.ai-acc'); if(!div) return;
+  if(data.error){
+    div.innerHTML='<div class="ai-head"><span class="ai-title">AI</span><button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></div>'+
+      '<div class="ai-err">⚠ '+escHtml(data.error)+'<button class="ai-retry" data-retry="'+idx+'">Thử lại</button></div>';
+    div.querySelector('[data-retry]').addEventListener('click', ()=>aiAnalyze(idx));
+    return;
+  }
+  const j=data.parsed||{};
+  const secs=[
+    ['ipa','1. Phiên âm IPA (General American)'],
+    ['connected_speech','2. Native Connected Speech'],
+    ['grammar','3. Phân tích ngữ pháp'],
+    ['meaning_vi','4. Dịch nghĩa & từ vựng'],
+    ['meaning_en','5. Meaning in English (A2)'],
+    ['context','6. Bối cảnh'],
+  ];
+  let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI</span><span class="ai-head-r">'+
+    '<button class="ai-copy-btn" title="Copy toàn bộ">Copy</button>'+
+    '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
+  for(const [k,title] of secs){
+    html+='<h5>'+title+'</h5><div class="ai-sec">'+mdRender(j[k]||'—')+'</div>';
+  }
+  div.innerHTML=html;
+  div.querySelector('.ai-copy-btn').addEventListener('click', ()=>{
+    const text=secs.map(([k,t])=>'### '+t+'\n'+String(j[k]||'')).join('\n\n');
+    if(navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(()=>toast('Đã copy toàn bộ phân tích'));
+    else toast('Không copy được');
+  });
+}
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function mdRender(md){
+  const lines=String(md||'').split('\n'); let out='', inUl=false;
+  const inline=s=>escHtml(s).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/\*([^*\n]+)\*/g,'<i>$1</i>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  for(const ln of lines){
+    const l=ln.trim();
+    if(/^#{1,6}\s*\d/.test(l)) continue; // heading số — khung đã có sẵn
+    const h=l.match(/^#{1,6}\s+(.*)/);
+    const li=l.match(/^[-*]\s+(.*)/);
+    if(li){ if(!inUl){ out+='<ul>'; inUl=true; } out+='<li>'+inline(li[1])+'</li>'; continue; }
+    if(inUl){ out+='</ul>'; inUl=false; }
+    if(h){ out+='<h5>'+inline(h[1])+'</h5>'; continue; }
+    if(l.startsWith('>')){ out+='<blockquote>'+inline(l.replace(/^>\s*/,''))+'</blockquote>'; continue; }
+    if(l==='') continue;
+    out+='<p>'+inline(l)+'</p>';
+  }
+  if(inUl) out+='</ul>';
+  return out;
+}
+function aiParse(text){
+  let t=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
+  let j=null;
+  try{ j=JSON.parse(t); }catch{
+    const m=t.match(/\{[\s\S]*\}/);
+    if(m){ try{ j=JSON.parse(m[0]); }catch{} }
+  }
+  if(j && (j.ipa||j.meaning_vi||j.context)) return j;
+  return null;
+}
+/* Gemini: explicit context caching — bơm ngữ cảnh 1 lần/h giờ */
+async function aiEnsureCache(ctxText){
+  const a=state.ai;
+  if(a.provider!=='gemini') return null;
+  const key=state.resumeKey||'f';
+  const c=state.aiCache;
+  if(c && c.fileKey===key && c.ctxLen===ctxText.length && new Date(c.expiry).getTime()>Date.now()+60000) return c.name;
+  const res=await fetch('https://generativelanguage.googleapis.com/v1beta/cachedContents?key='+encodeURIComponent(a.key),{
+    method:'POST', headers:{'Content-Type':'application/json'}, signal:state.aiCtrl?.signal,
+    body:JSON.stringify({
+      model:(a.model.startsWith('models/')?a.model:'models/'+a.model),
+      systemInstruction:{parts:[{text:aiSystemPrompt(a.lang)}]},
+      contents:[{role:'user', parts:[{text:'Subtitles of the film (timestamped):\n\n'+ctxText}]}],
+      ttl:'3600s',
+    })});
+  if(!res.ok) throw new Error('Không tạo được context cache (HTTP '+res.status+')');
+  const j=await res.json();
+  state.aiCache={name:j.name, expiry:j.expireTime||new Date(Date.now()+3600e3).toISOString(), fileKey:key, ctxLen:ctxText.length};
+  return state.aiCache.name;
+}
+async function aiCallGemini(cue, idx, signal){
+  const a=state.ai;
+  const ctx=aiCtxText(idx);
+  const q='Analyze the subtitle cue at ['+vttTs(cue.start)+' → '+vttTs(cue.end)+']: "'+cue.text.replace(/\n/g,' ')+'"';
+  let body;
+  let usedCache=false;
+  try{
+    const name=await aiEnsureCache(ctx);
+    body={cachedContent:name, contents:[{role:'user', parts:[{text:q}]}]};
+    usedCache=true;
+  }catch(err){ /* fallback: gửi full một lần trong request */ }
+  if(!body){
+    body={ systemInstruction:{parts:[{text:aiSystemPrompt(a.lang)}]},
+           contents:[{role:'user', parts:[{text:'Subtitles of the film (timestamped):\n\n'+ctx+'\n\n'+q}]}] };
+  }
+  const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(a.model)+':generateContent?key='+encodeURIComponent(a.key),{
+    method:'POST', headers:{'Content-Type':'application/json'}, signal,
+    body:JSON.stringify({...body, generationConfig:{responseMimeType:'application/json', temperature:0.4}})});
+  if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('Gemini HTTP '+res.status+': '+e.slice(0,160)); }
+  const j=await res.json();
+  const text=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
+  return {text, usedCache};
+}
+async function aiCallOpenAICompat(cue, idx, signal){
+  const a=state.ai;
+  const base=(a.provider==='custom'? a.base : AI_PROVIDERS[a.provider].base).replace(/\/+$/,'');
+  if(!base) throw new Error('Thiếu Base URL cho provider Custom');
+  const ctx=aiCtxText(idx);
+  const q='Analyze the subtitle cue at ['+vttTs(cue.start)+' → '+vttTs(cue.end)+']: "'+cue.text.replace(/\n/g,' ')+'"';
+  const messages=[
+    {role:'system', content:aiSystemPrompt(a.lang)},
+    {role:'user', content:'Subtitles of the film (timestamped):\n\n'+ctx},
+    {role:'assistant', content:'Đã nắm toàn bộ ngữ cảnh phim. Hỏi tiếp.'},
+    {role:'user', content:q}];
+  const res=await fetch(base+'/chat/completions',{
+    method:'POST', headers:{'Content-Type':'application/json', 'Authorization':'Bearer '+a.key}, signal,
+    body:JSON.stringify({model:a.model, messages, temperature:0.4, response_format:{type:'json_object'}})});
+  if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('HTTP '+res.status+': '+e.slice(0,160)); }
+  const j=await res.json();
+  return {text:j.choices?.[0]?.message?.content||'', usedCache:true}; // prefix giống hệt -> prompt caching tự động
+}
+async function aiAnalyze(idx){
+  const cue=state.cues[idx]; if(!cue) return;
+  const a=state.ai;
+  if(!a.key){ toast('Chưa có API key — mở ⚙ Cài đặt, phần AI.', {label:'Mở cài đặt', fn:()=>$('#btnSettings').click()}); return; }
+  video.pause();
+  openAiAcc(idx);
+  const ck=aiCacheKey(cue);
+  const cached=aiCacheGet(ck);
+  if(cached){ renderAiAcc(idx, cached); return; }
+  const ctrl=new AbortController(); state.aiCtrl=ctrl;
+  try{
+    const r=a.provider==='gemini' ? await aiCallGemini(cue, idx, ctrl.signal) : await aiCallOpenAICompat(cue, idx, ctrl.signal);
+    const parsed=aiParse(r.text);
+    const data={at:Date.now(), content:r.text, parsed, cached:usedCacheNote(r)};
+    aiCacheSet(ck, data);
+    renderAiAcc(idx, data);
+  }catch(err){
+    if(err.name==='AbortError'){ const el=document.querySelector('.ai-acc'); if(el) el.remove(); return; }
+    renderAiAcc(idx, {error:err.message||'Lỗi không xác định'});
+  }finally{ if(state.aiCtrl===ctrl) state.aiCtrl=null; }
+}
+function usedCacheNote(r){ return !!r.usedCache; }
 
 /* ================= Loop A–B ================= */
 function loopClick(i){
@@ -1424,7 +1703,9 @@ function setVideo(file, handle){
   fileChip.textContent=file.name;
   setLoop(null); state.activeRow=-1; state.pendingEnd=null; lastShownSec=-1;
   state.audioWarned=false;
+  closeAiAcc();
   state.resumeKey=sessionKey(file);
+  state.aiCache=null; state.aiCacheMap=null;
   state.hasVHandle=!!handle; state.hasSHandle=false;
   if(handle) idbSet('v:'+state.resumeKey, handle);
   if(state.pendingSub){ const p=state.pendingSub; state.pendingSub=null; setSubtitle(p.file, p.handle); }
@@ -1720,6 +2001,7 @@ $('#btnSettings').addEventListener('click', ()=>{
   [...stepPresets.children].forEach(b=>b.classList.toggle('on', +b.dataset.v===state.seekStep));
   encSelect.value=state.encoding;
   syncSubStyleUI();
+  aiSyncUI();
   settingsDialog.showModal();
 });
 $('#setClose').addEventListener('click', ()=>settingsDialog.close());
@@ -1781,6 +2063,56 @@ $('#subStyleReset').addEventListener('click', ()=>{
   toast('Đã đặt lại giao diện phụ đề về mặc định');
 });
 
+/* ================= Cài đặt AI ================= */
+function aiSyncUI(){
+  const e={provider:$('#aiProvider'), key:$('#aiKey'), model:$('#aiModel'), base:$('#aiBase'), ctx:$('#aiContextSel'), lang:$('#aiLang')};
+  e.provider.value=state.ai.provider; e.key.value=state.ai.key; e.model.value=state.ai.model;
+  e.base.value=state.ai.base; e.ctx.value=state.ai.context; e.lang.value=state.ai.lang;
+  $('#aiBaseRow').style.display=state.ai.provider==='custom'?'':'none';
+  e.model.placeholder=AI_PROVIDERS[state.ai.provider]?.model||'';
+}
+function aiCollect(){
+  const e={provider:$('#aiProvider'), key:$('#aiKey'), model:$('#aiModel'), base:$('#aiBase'), ctx:$('#aiContextSel'), lang:$('#aiLang')};
+  state.ai.provider=e.provider.value; state.ai.key=e.key.value.trim();
+  state.ai.model=e.model.value.trim()||AI_PROVIDERS[e.provider.value].model;
+  state.ai.base=e.base.value.trim(); state.ai.context=e.ctx.value;
+  state.ai.lang=e.lang.value.trim()||'Tiếng Việt';
+  aiSave();
+}
+function aiSave(){ try{ localStorage.setItem('op:ai', JSON.stringify(state.ai)); }catch{} }
+function aiLoad(){ try{ Object.assign(state.ai, JSON.parse(localStorage.getItem('op:ai')||'{}')); }catch{} }
+$('#aiProvider').addEventListener('change', ()=>{ aiCollect(); aiSyncUI(); });
+['#aiKey','#aiModel','#aiBase','#aiContextSel','#aiLang'].forEach(s=>{
+  $(s).addEventListener('change', aiCollect);
+  $(s).addEventListener('blur', aiCollect);
+});
+$('#aiKeyEye').addEventListener('click', ()=>{
+  const k=$('#aiKey'); k.type = k.type==='password' ? 'text' : 'password';
+});
+$('#aiTest').addEventListener('click', async ()=>{
+  aiCollect();
+  const status=$('#aiStatus');
+  status.textContent='Đang kiểm tra kết nối…'; status.style.color='#c9c9c9';
+  try{
+    let ok=false;
+    if(state.ai.provider==='gemini'){
+      const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(state.ai.model)+':generateContent?key='+encodeURIComponent(state.ai.key),{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{role:'user',parts:[{text:'Reply with the single word OK'}]}]})});
+      ok=r.ok; if(!r.ok) throw new Error('HTTP '+r.status);
+    }else{
+      const base=(state.ai.provider==='custom'? state.ai.base : AI_PROVIDERS[state.ai.provider].base).replace(/\/+$/,'');
+      const r=await fetch(base+'/chat/completions',{
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+state.ai.key},
+        body:JSON.stringify({model:state.ai.model, messages:[{role:'user',content:'Reply with the single word OK'}]})});
+      ok=r.ok; if(!r.ok) throw new Error('HTTP '+r.status);
+    }
+    status.textContent='✓ Kết nối OK — '+state.ai.provider+' · '+state.ai.model; status.style.color='#7ddb7d';
+  }catch(err){
+    status.textContent='✗ Lỗi kết nối: '+err.message; status.style.color='#ff8a80';
+  }
+});
+
 /* ================= Viewport / xoay máy ================= */
 function updateAppHeight(){
   const h=window.visualViewport?Math.round(window.visualViewport.height):window.innerHeight;
@@ -1792,6 +2124,7 @@ window.addEventListener('orientationchange', ()=>setTimeout(repositionActive,300
 
 /* ================= Init ================= */
 loadSettings();
+aiLoad();
 updateAutoPause(); updateCC();
 $('#btnCase').classList.toggle('on', state.caseSensitive);
 volSlider.value=video.muted?0:video.volume;
