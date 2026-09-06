@@ -875,7 +875,7 @@ const state = {
   sub2File:null, sub2Buffer:null, cues2:[], pairs2:null, sub2Visible:true, sub2Meta:null, hasS2Handle:false, pendingSub2:null,
   subStyle:{scale:1, pos:14, bg:'dim', color:'#ffffff', font:'default'},
   ai:{chain:[{id:'g1', name:'Gemini', type:'gemini', base:'', key:'', model:'gemini-2.0-flash', on:true}],
-      context:'window', lang:'Tiếng Việt', prefetch:true},
+      context:'window', lang:'Tiếng Việt', prefetch:true, maxTokens:0},
   aiCache:null, aiCacheMap:null, aiCtrl:null, aiCaches:{},
 };
 
@@ -1468,10 +1468,18 @@ function mdRender(md){
 function aiParse(text){
   let t=String(text||'').replace(/<think>[\s\S]*?<\/think>/gi,'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
   const fixEsc=s=>s.replace(/\\(?![\\"\/bfnrtu])/g,'\\\\').replace(/[\u0000-\u001f]/g,' ');
+  const ok=j=>j&&(j.ipa||j.meaning_vi||j.context);
   let j=null;
-  const m=t.match(/\{[\s\S]*\}/);
-  if(m){ try{ j=JSON.parse(fixEsc(m[0])); }catch{} }
-  if(j && (j.ipa||j.meaning_vi||j.context)) return j;
+  /* ưu tiên block JSON CUỐI (model reasoning hay viết suy nghĩ có ngoặc trước answer) */
+  const ends=t.lastIndexOf('}');
+  if(ends!==-1){
+    const starts=[...t.matchAll(/\{/g)].map(mm=>mm.index).reverse();
+    for(const s of starts){
+      if(s>=ends) continue;
+      try{ const cand=JSON.parse(fixEsc(t.slice(s,ends+1))); if(ok(cand)){ j=cand; break; } }catch{}
+    }
+  }
+  if(j) return j;
   /* fallback: bóc từng trường từ JSON lẫn prose (model free hay escape sai / lẫn prose) */
   const fields=['ipa','connected_speech','grammar','meaning_vi','meaning_en','context'];
   const out={}; let found=0;
@@ -1512,12 +1520,23 @@ async function aiCallGeminiP(p, cue, idx, signal){
     body={ systemInstruction:{parts:[{text:aiSystemPrompt(p.lang||state.ai.lang)}]},
            contents:[{role:'user', parts:[{text:'Subtitles of the film (timestamped):\n\n'+ctx+'\n\n'+q}]}] };
   }
-  const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(p.model)+':generateContent?key='+encodeURIComponent(p.key),{
-    method:'POST', headers:{'Content-Type':'application/json'}, signal,
-    body:JSON.stringify({...body, generationConfig:{responseMimeType:'application/json', temperature:0.4, maxOutputTokens:3000}})});
+  const call=extra=>{
+    const gc={responseMimeType:'application/json', temperature:0.4};
+    if(extra) gc.maxOutputTokens=extra; // không đặt = provider dùng tối đa
+    return fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(p.model)+':generateContent?key='+encodeURIComponent(p.key),{
+      method:'POST', headers:{'Content-Type':'application/json'}, signal,
+      body:JSON.stringify({...body, generationConfig:gc})});
+  };
+  let res=await call(0);
+  let j=await res.json();
+  let text=j.candidates?.[0]?.content?.parts?.map(pp=>pp.text||'').join('') || '';
+  if(j.candidates?.[0]?.finishReason==='MAX_TOKENS' && !text){
+    res=await call(65536);
+    j=await res.json();
+    text=j.candidates?.[0]?.content?.parts?.map(pp=>pp.text||'').join('') || '';
+  }
   if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('Gemini HTTP '+res.status+': '+e.slice(0,160)); }
-  const j=await res.json();
-  return {text:j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || ''};
+  return {text};
 }
 async function aiCallOpenAIP(p, cue, idx, signal){
   if(!p.base) throw new Error('thiếu Base URL');
@@ -1530,18 +1549,24 @@ async function aiCallOpenAIP(p, cue, idx, signal){
     {role:'user', content:q}];
   const headers={'Content-Type':'application/json','Authorization':'Bearer '+p.key};
   if(/openrouter\.ai/i.test(p.base)){ headers['HTTP-Referer']=location.origin; headers['X-Title']='Omni Player'; }
-  let res;
-  try{
-    res=await fetch(p.base.replace(/\/+$/,'')+'/chat/completions',{
-      method:'POST', headers, signal,
-      body:JSON.stringify({model:p.model, messages, temperature:0.4, max_tokens:3000})});
-  }catch(err){
-    if(err.name==='AbortError') throw err;
-    throw new Error('mạng chặn hoặc provider không hỗ trợ gọi từ browser (CORS) — '+err.message);
+  const call=mt=>{
+    const b={model:p.model, messages, temperature:0.4};
+    if(mt) b.max_tokens=mt; // không đặt = provider dùng tối đa model cho phép
+    return fetch(p.base.replace(/\/+$/,'')+'/chat/completions',{
+      method:'POST', headers, signal, body:JSON.stringify(b)});
+  };
+  let res=await call(0);
+  let j=await res.json().catch(()=>null);
+  const noAnswer=()=>{ const msg=j?.choices?.[0]?.message; return res.ok && !msg?.content && (j.choices[0].finish_reason==='length' || msg?.reasoning); };
+  /* model reasoning đốt token vào suy nghĩ chưa kịp trả lời -> nâng budget thử lại */
+  if(noAnswer()){ res=await call(32000); j=await res.json().catch(()=>null); }
+  if(noAnswer()){ res=await call(65000); j=await res.json().catch(()=>null); }
+  if(!res.ok){ const e=j?.error?.message || ('HTTP '+res.status); throw new Error(e.slice(0,160)); }
+  const msg=j?.choices?.[0]?.message||{};
+  if(!msg.content){
+    throw new Error('Model dùng hết token cho phần suy nghĩ (reasoning) mà chưa trả lời — tăng "Max tokens" trong ⚙ hoặc đổi model thường.');
   }
-  if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('HTTP '+res.status+': '+e.slice(0,160)); }
-  const j=await res.json();
-  return {text:j.choices?.[0]?.message?.content||''};
+  return {text:msg.content};
 }
 async function aiRunAnalysis(idx, signal){
   const cue=state.cues[idx]; if(!cue) throw new Error('không có cue');
