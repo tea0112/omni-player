@@ -35,7 +35,7 @@ python3 -m http.server 8080
 
 ## 🤖 AI phân tích câu thoại (khung 6 mục)
 
-Hover một câu trong transcript → bấm **✨** → video tự pause và AI phân tích câu đó theo **khung cố định 6 mục**, render ngay dưới dòng phụ đề (không rời mắt):
+Hover một câu trong transcript → bấm **✨** → video tự pause và AI phân tích câu đó theo **khung cố định 6 mục**, render ngay dưới dòng phụ đề (không rời mắt). **Kết quả hiện dần từng mục** — model viết tới đâu hiện tới đó (stream SSE), không chờ cả khối; mục chưa tới hiện "…":
 
 1. **Phiên âm IPA** (General American) — chỉ từ A2+, kèm nhãn CEFR
 2. **Nói nối (connected speech)** — nhược âm, nối âm, âm tắt hầu [ʔ], nuốt /t/… kèm chuỗi `→ /IPA/`
