@@ -58,7 +58,7 @@ svg{display:block}
 /* subtitle overlay */
 #subOverlay{
   position:absolute; left:50%; transform:translateX(-50%);
-  bottom:var(--sub-bottom,14%); z-index:2; pointer-events:none;
+  bottom:max(var(--sub-bottom,14%), calc(106px + env(safe-area-inset-bottom))); /* không bao giờ chui dưới thanh điều khiển */
   max-width:92%; text-align:center; white-space:pre-line;
   font-size:calc(clamp(15px,2.3vw,24px) * var(--sub-scale,1)); line-height:1.35; font-weight:500;
   color:var(--sub-color,#fff); text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.7);
@@ -1027,7 +1027,7 @@ list.addEventListener('click', e=>{
   const row=e.target.closest('.cue'); if(!row) return;
   const i=+row.dataset.i;
   const onBtn=e.target.closest('button');
-  if(e.target.closest('.cue-actions') && !onBtn) return; // khoảng trống hàng nút: không seek
+  /* khoảng trống hàng nút: vẫn coi như bấm dòng — tua tới câu (bug: bấm ngoài chữ không nhảy) */
   if(e.target.closest('.cue-loop')) loopClick(i);
   else if(e.target.closest('.cue-copy')) copyCue(i);
   else if(e.target.closest('.cue-ai')) aiAnalyze(i);
