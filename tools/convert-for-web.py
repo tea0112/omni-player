@@ -147,6 +147,10 @@ def convert_file(ffmpeg, ffprobe, src: Path, dst: Path, args, dry=False):
 
     if act["video"] == "copy":
         cmd += ["-c:v", "copy"]
+    elif is_hdr(v):
+        # HDR10/HLG -> tone-map SDR BT.709 trước khi encode, tránh ra màu bạc
+        cmd += ["-c:v", "libx264", "-preset", args.preset, "-crf", str(args.crf),
+                "-vf", TONEMAP_VF]
     else:
         cmd += ["-c:v", "libx264", "-preset", args.preset, "-crf", str(args.crf), "-pix_fmt", "yuv420p"]
 
@@ -252,6 +256,10 @@ def main():
     stat = {"ok": 0, "skip": 0, "fail": 0, "plan": 0}
     for i, src in enumerate(files, 1):
         dst = out_path(src, root, outdir)
+        if dst == src and not args.dry_run:
+            print("  = MP4 nguồn cần re-encode mà không có --out — bỏ qua (để tránh ghi đè lên file gốc)")
+            stat["skip"] += 1
+            continue
         print(f"[{i}/{len(files)}] {src.name}")
         if dst.exists() and not args.force and not args.dry_run:
             print(f"  = đã có {dst.name} — bỏ qua (dùng --force để convert lại)")

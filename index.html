@@ -96,7 +96,6 @@ svg{display:block}
   #centerCtl{display:flex}
   #bigPlay{display:none!important}
 }
-body.touch #bigPlay{display:none!important}
 
 /* seek feedback bubble */
 .seek-bubble{
@@ -353,16 +352,6 @@ body.touch #bigPlay{display:none!important}
 .mp-item b{display:block; font-size:13px; word-break:break-all}
 .mp-item span{display:block; font-size:11.5px; color:var(--tx2)}
 
-.cue-time{color:var(--tx2); font-size:12px; font-variant-numeric:tabular-nums; padding-top:2px}
-body.touch #centerCtl{display:flex}
-body.touch #bigPlay{display:none!important}
-body.touch #volSlider{display:none}
-body.touch #searchInput{width:0; padding-left:0; padding-right:0; flex:0 0 auto}
-body.touch #searchWrap.searching #searchInput{flex:1; padding:8px 0}
-body.touch #btnCase, body.touch #searchCount{display:none}
-body.touch #searchWrap.searching #btnCase{display:grid}
-body.touch #searchWrap.searching #searchCount{display:inline}
-body.touch .search-ico{cursor:pointer}
 .cue-text{font-size:14.5px; color:#ddd; white-space:pre-line; word-break:break-word}
 .cue.active{background:#303030}
 .cue.active .cue-text{color:#fff; font-weight:600}
@@ -373,7 +362,6 @@ body.touch .search-ico{cursor:pointer}
 .cue.hit{opacity:.32}
 .cue.match{opacity:1}
 .cue.goto{outline:2px solid var(--acc2); outline-offset:-2px}
-.cue.loop-a .cue-loop, .cue.loop-b .cue-loop{color:var(--acc2)}
 .cue-text mark{background:#f5c400; color:#111; border-radius:3px; padding:0 1px}
 .cue-sub2{font-size:12.5px; color:#8fb4ff; margin-top:3px; font-weight:400; white-space:pre-line}
 .cue.active .cue-sub2{color:#a8c6ff}
@@ -829,7 +817,6 @@ const isCoarse = matchMedia('(hover: none) and (pointer: coarse)').matches;
 /* iPad Brave/Chrome ở desktop-mode vẫn báo pointer:fine — phải detect touch thật */
 const isTouchLike = isCoarse || navigator.maxTouchPoints > 1;
 document.body.classList.toggle('touch', isTouchLike);
-const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 
 /* ================= State ================= */
 const state = {
@@ -845,7 +832,7 @@ const state = {
   sub2File:null, sub2Buffer:null, cues2:[], pairs2:null, sub2Visible:true, sub2Meta:null, hasS2Handle:false, pendingSub2:null,
   subStyle:{scale:1, pos:14, bg:'dim', color:'#ffffff', font:'default'},
   ai:{chain:[{id:'g1', name:'Gemini', type:'gemini', base:'', key:'', model:'gemini-2.0-flash', on:true}],
-      context:'window', lang:'Tiếng Việt', prefetch:true, maxTokens:0},
+      context:'window', lang:'Tiếng Việt', prefetch:true},
   aiCache:null, aiCacheMap:null, aiCtrl:null, aiCaches:{},
 };
 
@@ -1066,7 +1053,7 @@ function copyText(text, okMsg){
 function copyCue(i){
   const c=state.cues[i];
   const text=c.text.replace(/\n/g,' ');
-  copyText(text, 'Đã copy: '+text.slice(0,40)+(text.length>40?'…':''));
+  copyText(text, 'Đã copy: '+Array.from(text).slice(0,40).join('')+(text.length>40?'…':''));
 }
 /* user đang đọc → tạm ngưng auto-scroll 3s */
 const markUserScroll=()=>{ state.userScrollUntil=Date.now()+3000; };
@@ -1092,7 +1079,6 @@ function scrollRowIntoView(i){
 const repositionActive=debounce(()=>{ if(state.activeRow>=0) scrollRowIntoView(state.activeRow); },250);
 
 /* ================= Search ================= */
-function escapeRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function highlightHtml(cue, q){
   const cs=state.caseSensitive;
   const t=cue.text, hay=cs?t:t.toLowerCase(), needle=cs?q:q.toLowerCase();
@@ -1270,7 +1256,11 @@ function aiCacheSet(k,v){
   if(!state.aiCacheMap) state.aiCacheMap=new Map();
   state.aiCacheMap.set(k,v);
   let entries=[...state.aiCacheMap.entries()].sort((a,b)=>(b[1].at||0)-(a[1].at||0)).slice(0,200);
-  try{ localStorage.setItem('op:ai2:cache:'+(state.resumeKey||'f'), JSON.stringify(Object.fromEntries(entries))); }catch{}
+  try{ localStorage.setItem('op:ai2:cache:'+(state.resumeKey||'f'), JSON.stringify(Object.fromEntries(entries))); }
+  catch(e){ // quota đầy — bỏ nửa cũ hơn rồi thử lại 1 lần; vẫn đầy thì bỏ qua (RAM vẫn giữ)
+    entries=entries.slice(0, Math.max(1, entries.length>>1));
+    try{ localStorage.setItem('op:ai2:cache:'+(state.resumeKey||'f'), JSON.stringify(Object.fromEntries(entries))); }catch(e2){}
+  }
 }
 function closeAiAcc(){
   const el=document.querySelector('.ai-acc'); if(el) el.remove();
@@ -1291,7 +1281,7 @@ const AI_SECS=[
 ];
 /* stream: render accordion TỪNG MẢNH khi model viết tới — field chưa có thì hiện dòng chờ */
 function renderAiAccStream(idx, partial){
-  const div=document.querySelector('.ai-acc'); if(!div || div.dataset.dead) return;
+  const div=document.querySelector('.ai-acc'); if(!div) return;
   let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI</span><span class="ai-head-r">'+
     '<span class="spin" style="width:12px;height:12px"></span>'+
     '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
@@ -1317,8 +1307,7 @@ function renderAiAcc(idx, data, via){
     viaNote=' · bỏ qua: '+data.fails.map(f=>{ const c=f.indexOf(':'); return c>0? f.slice(0,c)+' ('+f.slice(c+1).trim().slice(0,48)+')' : f.slice(0,60); }).join(', ');
   }
   let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI'+(via?' <span style="color:#999;font-weight:400">· via '+escHtml(via+viaNote)+'</span>':'')+'</span><span class="ai-head-r">'+
-    '<button class="ai-ref" title="Bỏ cache — gọi lại AI">'+(data.cached?'🔄':'🔄')+'</button>'+
-    '<button class="ai-copy-btn" title="Copy toàn bộ">Copy</button>'+
+    '<button class="ai-ref" title="Bỏ cache — gọi lại AI">🔄</button>'+
     '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
   for(const [k,title] of AI_SECS){
     html+='<h5>'+title+'</h5><div class="ai-sec">'+mdRender(stripLeadHeadings(j[k]||'—'))+'</div>';
@@ -1557,7 +1546,7 @@ async function aiCallOpenAIP(p, cue, idx, signal, onDelta){
   /* không stream: đường cũ — dùng cho retry budget reasoning */
   let res=await call(0, false);
   let j=await res.json().catch(()=>null);
-  const noAnswer=()=>{ const msg=j?.choices?.[0]?.message; return res.ok && !msg?.content && (j.choices[0].finish_reason==='length' || msg?.reasoning); };
+  const noAnswer=()=>{ const msg=j?.choices?.[0]?.message; return res.ok && !msg?.content && (j?.choices?.[0]?.finish_reason==='length' || msg?.reasoning); };
   /* model reasoning đốt token vào suy nghĩ chưa kịp trả lời -> nâng budget thử lại */
   if(noAnswer()){ res=await call(32000, false); j=await res.json().catch(()=>null); }
   if(noAnswer()){ res=await call(65000, false); j=await res.json().catch(()=>null); }
@@ -1795,7 +1784,7 @@ function updatePlayUI(){
 
 /* controls: luôn hiện — không tự ẩn gì cả */
 let speedMenuOpen=false;
-function showControls(){ wrap.classList.remove('controls-hidden'); }
+function showControls(){ /* UI luôn hiện — giữ làm no-op để không phải sửa 7 callsite */ }
 
 /* cụm nút giữa: tự ẩn sau 3s khi đang phát — mọi thao tác đều hiện lại; đang dừng thì hiện luôn */
 let ccTimer=0;
@@ -2154,7 +2143,7 @@ function renderHistory(){
       '<div class="hist-main"><div class="hist-name"></div>'+
       '<div class="hist-bar"><i style="width:'+pct+'%"></i></div>'+
       '<div class="hist-meta">'+fmt(e.t)+' / '+fmt(e.d)+' · '+pct+'% · '+fmtAgo(e.at)+
-      (e.sub?' · 📄 '+e.sub.name:'')+(e.sub2?' · 🈯 '+e.sub2.name:'')+(e.hasVHandle?'':' · <span class="hist-nofh">chọn lại file khi bấm</span>')+'</div></div>'+
+      (e.sub?' · 📄 '+escHtml(e.sub.name):'')+(e.sub2?' · 🈯 '+escHtml(e.sub2.name):'')+(e.hasVHandle?'':' · <span class="hist-nofh">chọn lại file khi bấm</span>')+'</div></div>'+
       '<button class="hist-del" title="Xoá khỏi lịch sử"><svg viewBox="0 0 24 24"><path d="M19 6.4 17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6z"/></svg></button>';
     row.querySelector('.hist-name').textContent=e.name;
     row.querySelector('.hist-play').addEventListener('click', ()=>continueEntry(e));
@@ -2301,10 +2290,10 @@ $('#btnSettings').addEventListener('click', ()=>{
   aiSyncUI();
   settingsDialog.showModal();
 });
-$('#setClose').addEventListener('click', ()=>settingsDialog.close());
+$('#setClose').addEventListener('click', ()=>{ aiCollect(); settingsDialog.close(); });
 $('#btnShortcuts').addEventListener('click', ()=>{ renderShortcuts(); shortcutsDialog.showModal(); });
 $('#scClose').addEventListener('click', ()=>shortcutsDialog.close());
-[settingsDialog,shortcutsDialog].forEach(d=>d.addEventListener('click', e=>{ if(e.target===d) d.close(); }));
+[settingsDialog,shortcutsDialog].forEach(d=>d.addEventListener('close', e=>{ if(e.target===settingsDialog) aiCollect(); }));
 
 const STEP_PRESETS=[1,3,5,10,15,30];
 for(const v of STEP_PRESETS){
@@ -2341,7 +2330,7 @@ function applySubStyle(){
   overlay.style.setProperty('--sub-scale', s.scale);
   overlay.style.setProperty('--sub-bottom', s.pos+'%');
   overlay.style.setProperty('--sub-color', s.color);
-  overlay.style.setProperty('--sub-color2', s.color===SUB_DEFAULTS.color ? '#a8c6ff' : s.color);
+  overlay.style.setProperty('--sub-color2', '#a8c6ff'); /* phụ đề 2 luôn xanh — phân biệt với dòng chính */
   overlay.dataset.bg=s.bg; overlay.dataset.font=s.font;
 }
 function syncSubStyleUI(){
@@ -2547,7 +2536,6 @@ speedLabel.textContent=(Math.round(video.playbackRate*100)/100)+'×';
 buildSpeedChips();
 $('#btnBack').title='Tua lại '+state.seekStep+'s (← / J)';
 $('#btnFwd').title='Tua tới '+state.seekStep+'s (→ / L)';
-if(isIOS) document.body.classList.add('ios');
 updateAppHeight();
 renderHistory();
 applySubStyle();
