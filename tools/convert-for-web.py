@@ -164,7 +164,18 @@ def convert_file(ffmpeg, ffprobe, src: Path, dst: Path, args, dry=False):
     cmd += ["-movflags", "+faststart", "-map_metadata", "0", "-map_chapters", "0", str(dst)]
 
     t0 = time.time()
-    if not run(cmd):
+    if not run(cmd) and "-vf" in cmd:
+        # zscale cần ffmpeg build với libzimg — build thiếu sẽ fail lúc parse filter.
+        # Thử lại không tone-map (HDR sẽ hơi bạc màu nhưng vẫn convert được).
+        eprint("  ! tone-map HDR lỗi (ffmpeg thiếu zscale?) — thử lại không tone-map")
+        i = cmd.index("-vf")
+        cmd = cmd[:i] + cmd[i + 2:]
+        cmd += ["-pix_fmt", "yuv420p"]
+        if not run(cmd):
+            eprint("  LỖI: ffmpeg thất bại")
+            dst.unlink(missing_ok=True)
+            return "fail"
+    elif not run(cmd):
         eprint("  LỖI: ffmpeg thất bại")
         dst.unlink(missing_ok=True)
         return "fail"
