@@ -1373,7 +1373,7 @@ function mdRender(md){
 function aiParse(text){
   let t=String(text||'').replace(/<think>[\s\S]*?<\/think>/gi,'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
   const fixEsc=s=>s.replace(/\\(?![\\"\/bfnrtu])/g,'\\\\').replace(/[\u0000-\u001f]/g,' ');
-  const ok=j=>j&&(j.meaning||j.context);
+  const ok=j=>j&&j.meaning&&j.context;
   let j=null;
   /* ưu tiên block JSON CUỐI (model reasoning hay viết suy nghĩ có ngoặc trước answer) */
   const ends=t.lastIndexOf('}');
@@ -1392,7 +1392,7 @@ function aiParse(text){
     const fm=t.match(new RegExp('"'+f+'"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"','i'));
     if(fm){ try{ out[f]=JSON.parse('"'+fixEsc(fm[1])+'"'); found++; }catch{} }
   }
-  return found>=1? out : null;
+  return (found>=2)? out : null;
 }
 /* Stream: bóc field từ JSON đang chảy về (chưa hoàn chỉnh). Gọi lại với text dồn đủ dài —
    stateful scanner chạy từ sau vị trí đã chốt của lần trước, nên chi phí O(n) tổng */
