@@ -33,16 +33,12 @@ python3 -m http.server 8080
    - **⚙ Cài đặt**: đổi bước tua (mặc định 5s), nhảy tới thời điểm, đổi bảng mã phụ đề khi tiếng Việt lỗi font, và **giao diện phụ đề** — cỡ chữ, vị trí dọc, nền (không/mờ/đậm), màu chữ (trắng/vàng/xanh), kiểu font — xem trước live, tự lưu
    - **Cuộn chuột trên vùng video** để chỉnh âm lượng (HUD % hiện ngay); lăn chuột trên **progress bar** để tua
 
-## 🤖 AI phân tích câu thoại (khung 6 mục)
+## 🤖 AI phân tích câu thoại (2 mục)
 
-Hover một câu trong transcript → bấm **✨** → video tự pause và AI phân tích câu đó theo **khung cố định 6 mục**, render ngay dưới dòng phụ đề (không rời mắt). **Kết quả hiện dần từng mục** — model viết tới đâu hiện tới đó (stream SSE), không chờ cả khối; mục chưa tới hiện "…":
+Hover một câu trong transcript → bấm **✨** → video tự pause và AI phân tích câu đó theo **2 mục**, render ngay dưới dòng phụ đề (không rời mắt). **Kết quả hiện dần từng mục** — model viết tới đâu hiện tới đó (stream SSE), không chờ cả khối; mục chưa tới hiện "…":
 
-1. **Phiên âm IPA** (General American) — chỉ từ A2+, kèm nhãn CEFR
-2. **Nói nối (connected speech)** — nhược âm, nối âm, âm tắt hầu [ʔ], nuốt /t/… kèm chuỗi `→ /IPA/`
-3. **Phân tích ngữ pháp** — cấu trúc, thì, từng cụm
-4. **Dịch nghĩa & từ vựng** + 2 bản dịch tiếng Việt tự nhiên
-5. **Meaning in English (A2)**
-6. **Bối cảnh** — AI đọc toàn bộ phụ đề để giải thích cảnh phim
+1. **Dịch nghĩa & từ vựng (Meaning & Vocabulary)** — dịch tiếng Việt chuẩn + 2-3 bản dịch tự nhiên theo phim + **Meaning in English (A2)** + bóc tách từ vựng/phrasal verbs kèm nhãn CEFR (nghĩa gốc vs nghĩa lóng/theo ngữ cảnh)
+2. **Bối cảnh trong tập phim** — đang xảy ra gì, ai nói với ai, câu nằm ở đâu trong cảnh, dẫn tới gì
 
 **Cấu hình:** ⚙ Cài đặt → 🤖 AI: danh sách provider theo thứ tự ưu tiên (NVIDIA NIM, DeepSeek, OpenRouter, OpenAI, OpenCode Zen/Go, Gemini, Custom OpenAI-compatible) + API key + model — **lỗi tự rơi xuống provider kế tiếp (fallback chain)**. Key chỉ lưu trong máy bạn, gọi thẳng tới provider — app không có server.
 
@@ -50,7 +46,7 @@ Hover một câu trong transcript → bấm **✨** → video tự pause và AI 
 >
 > ⚡ **Đã tắt reasoning tối đa:** prompt có sẵn `detailed thinking off. /no_think`, OpenRouter gửi thêm `reasoning:{enabled:false}`. Lưu ý: một số model **reasoning-thuần** (vd `nvidia/nemotron-*-lightning` trên NIM) **bỏ qua mọi công tắc** — test thật: câu `17×23` vẫn mất 27–72 giây để "suy nghĩ". Đang chậm? **Đổi sang model thường** trong 🔍 (vd `meta/llama-3.3-70b-instruct`, `deepseek-chat`, `google/gemini-2.0-flash-001`) — khác nhau vài chục giây mỗi câu.
 
-**Ngôn ngữ phân tích:** mục 1–4 + 6 luôn viết theo "Ngôn ngữ giải thích" trong ⚙ (mặc định **Tiếng Việt** — kể cả thuật ngữ: dạng yếu, nối âm, âm tắt hầu [ʔ], chủ ngữ/động từ…). Riêng mục 5 giữ tiếng Anh đơn giản A2 **do chủ đích** — để bạn hiểu câu bằng tiếng Anh dễ.
+**Ngôn ngữ phân tích:** mục 1 (trừ phần "Meaning in English") + mục 2 luôn viết theo "Ngôn ngữ giải thích" trong ⚙ (mặc định **Tiếng Việt**). Riêng "Meaning in English" giữ tiếng Anh đơn giản A2 **do chủ đích** — để bạn hiểu câu bằng tiếng Anh dễ.
 
 **Tiết kiệm chi phí:**
 - Kết quả phân tích **cache 2 lớp** (RAM + localStorage theo từng file) — hỏi lại câu cũ = 0ms 0₫, sống qua reload

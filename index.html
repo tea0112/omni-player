@@ -1229,43 +1229,31 @@ const AI_PRESETS=[
 function aiSystemPrompt(lang){
   const vi=/vi[eệ]t|viet/i.test(lang);
   const gloss=vi?`
-- BẮT BUỘC dùng thuật ngữ tiếng Việt (giữ ký hiệu gốc trong ngoặc nếu cần): weak form = "dạng yếu"; linking = "nối âm"; glottal stop = "âm tắt hầu [ʔ]"; flapped /t/ = "/t/ vỗ [ɾ]"; unreleased /t/ = "/t/ không bật hơi"; schwa = "âm schwa /ə/"; assimilation = "đồng hóa âm"; elision = "lược âm"; sentence type = "loại câu"; tense = "thì"; subject/verb/object = "chủ ngữ/động từ/tân ngữ"; adjective/adverb/conjunction/preposition = "tính từ/trạng từ/liên từ/giới từ".
-- Mẫu mục 1 viết đúng: **still** (A2): /stɪl/ — từ này không biến âm khi nói nhanh.
-- Mẫu mục 2 viết đúng: "and" dạng yếu /ænd/ → /ən/, nối âm với "I" thành **/ən.aɪ/**.
-- Mẫu mục 3 viết đúng: Câu trần thuật đơn. "still" là trạng từ nhấn mạnh sự tiếp diễn từ quá khứ đến hiện tại.`:'';
+- BẮT BUỘC dùng tiếng Việt tự nhiên, khẩu ngữ như người Việt bình luận phim (có thể dùng từ lóng nhẹ: tống vô tù, mê, phá án, hóc búa…). KHÔNG dịch chữ trắng trợn từng từ.
+- Mẫu từ vựng viết đúng: **put away** (B2 — cụm động từ): nghĩa gốc "cất dọn vào ngăn nắp"; nghĩa lóng cảnh sát: "tống giam, bỏ tù ai đó".
+- Mẫu bối cảnh viết đúng: nêu tên nhân vật, sự kiện ngay trước đó, trích câu thoại rồi dịch trong ngoặc.`:'';
   return `You are an expert English-teaching assistant for Vietnamese speakers. You analyze ONE movie subtitle line using the film's full subtitle context.
 
-MOST IMPORTANT — LANGUAGE RULE: the analysis language is ${lang}. Sections 1, 2, 3, 4 and 6 must be written ENTIRELY in ${lang}: every sentence, every label, every linguistic and grammar term. NEVER write English prose in those sections. The only English allowed there: IPA symbols, the subtitle line itself, and the quoted English words being analyzed. Only section 5 stays in simple English (A2) by design.${gloss}
 
-Respond with EXACTLY these 6 markdown sections, in this order:
+MOST IMPORTANT — LANGUAGE RULE: the analysis language is ${lang}. Section 1 (except the "Meaning in English" part) and section 2 must be written ENTIRELY in ${lang}. The "Meaning in English" part inside section 1 is ALWAYS simple English (A2 level) by design. Quoted English words/phrases stay in English.${gloss}
 
-### 1. IPA (General American)
-- Only words at CEFR A2 or above (skip trivial A1 words: the, a, an, in, on, at, was, is, to, of, and...).
-- Each bullet: **word** (CEFR): /IPA/ — variant notes written in ${lang}.
+Respond with EXACTLY these 2 markdown sections, in this order:
 
-### 2. Connected speech
-- Phenomena: weak forms, consonant→vowel linking, glottal stop [ʔ], unreleased/flapped /t/ — each explained in ${lang}.
-- Each bullet names the phenomenon in ${lang}, then shows the transformation: \`word word\` → **/IPA/**.
+### 1. Meaning & Vocabulary
+- **Dịch tiếng Việt:** nghĩa chuẩn (1 câu dịch đúng đắn) rồi "Dịch tự nhiên theo phim": 2-3 biến thể khẩu ngữ sáng tạo.
+- **Meaning in English (A2):** 1-2 câu đơn giản mức A2 giải thích ý câu.
+- **Bóc tách từ vựng & Phrasal Verbs:** mỗi từ/cụm khó một bullet: **word** (CEFR): nghĩa gốc; nghĩa theo ngữ cảnh phim (slang/idiom nếu có). Chỉ lấy từ CEFR A2 trở lên.
 
-### 3. Grammar
-- Sentence structure, tense choice, then phrase-by-phrase breakdown — grammar terms written in ${lang}.
-
-### 4. Vietnamese meaning & vocabulary
-- Key words/phrases with Vietnamese meanings, then exactly 2 natural Vietnamese translations of the whole line.
-
-### 5. Meaning in English (A2)
-- Simple A2-level English explanation + key vocabulary bullets. (This is the ONLY section written in English.)
-
-### 6. Context
-- Using the film context: what is happening, who speaks to whom, the purpose of this line, what it leads to — written in ${lang}.
+### 2. Context
+- Dùng ngữ cảnh phim: đang xảy ra gì, ai nói với ai, câu này nằm ở đâu trong cảnh, dẫn tới gì. Trích câu thoại liên quan kèm dịch ${lang} trong ngoặc.
 
 STRICT RULES:
-- Re-check the LANGUAGE RULE before answering: sections 1, 2, 3, 4, 6 in ${lang}, section 5 in simple English.
+- Re-check the LANGUAGE RULE before answering: section 1 (trừ Meaning in English) và section 2 in ${lang}; "Meaning in English" in tiếng Anh A2.
 - SPEED: detailed thinking off. /no_think — do NOT think step by step, do not emit any <think> block or reasoning; answer immediately with only the JSON.
 - Each JSON field contains ONLY its section content — NEVER repeat the section heading (no "### 1. ..." lines inside fields).
 - NO preamble, no <think> blocks in the output, no explanations outside the JSON. Start the answer directly with "{".
 Output STRICT JSON only:
-{"ipa":"markdown","connected_speech":"markdown","grammar":"markdown","meaning_vi":"markdown","meaning_en":"markdown","context":"markdown"}`;
+{"meaning":"markdown","context":"markdown"}`;
 }
 function aiCtxText(idx){
   const cues=state.cues;
@@ -1275,14 +1263,14 @@ function aiCtxText(idx){
 }
 function aiCacheKey(cue){ return (state.resumeKey||'f')+'#'+cue.start.toFixed(3); }
 function aiCacheGet(k){
-  if(!state.aiCacheMap) state.aiCacheMap=new Map(Object.entries(JSON.parse(localStorage.getItem('op:ai:cache:'+(state.resumeKey||'f'))||'{}')));
+  if(!state.aiCacheMap) state.aiCacheMap=new Map(Object.entries(JSON.parse(localStorage.getItem('op:ai2:cache:'+(state.resumeKey||'f'))||'{}')));
   return state.aiCacheMap.get(k)||null;
 }
 function aiCacheSet(k,v){
   if(!state.aiCacheMap) state.aiCacheMap=new Map();
   state.aiCacheMap.set(k,v);
   let entries=[...state.aiCacheMap.entries()].sort((a,b)=>(b[1].at||0)-(a[1].at||0)).slice(0,200);
-  try{ localStorage.setItem('op:ai:cache:'+(state.resumeKey||'f'), JSON.stringify(Object.fromEntries(entries))); }catch{}
+  try{ localStorage.setItem('op:ai2:cache:'+(state.resumeKey||'f'), JSON.stringify(Object.fromEntries(entries))); }catch{}
 }
 function closeAiAcc(){
   const el=document.querySelector('.ai-acc'); if(el) el.remove();
@@ -1297,21 +1285,17 @@ function openAiAcc(idx){
   row.after(div);
   div.scrollIntoView({block:'nearest', behavior:'smooth'});
 }
+const AI_SECS=[
+  ['meaning','1. Dịch nghĩa & từ vựng (Meaning & Vocabulary)'],
+  ['context','2. Bối cảnh trong tập phim'],
+];
 /* stream: render accordion TỪNG MẢNH khi model viết tới — field chưa có thì hiện dòng chờ */
 function renderAiAccStream(idx, partial){
   const div=document.querySelector('.ai-acc'); if(!div || div.dataset.dead) return;
-  const secs=[
-    ['ipa','1. Phiên âm IPA (General American)'],
-    ['connected_speech','2. Nói nối (connected speech)'],
-    ['grammar','3. Phân tích ngữ pháp'],
-    ['meaning_vi','4. Dịch nghĩa & từ vựng'],
-    ['meaning_en','5. Meaning in English (A2)'],
-    ['context','6. Bối cảnh'],
-  ];
   let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI</span><span class="ai-head-r">'+
     '<span class="spin" style="width:12px;height:12px"></span>'+
     '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
-  for(const [k,title] of secs){
+  for(const [k,title] of AI_SECS){
     const v=partial && partial[k];
     html+='<h5>'+title+'</h5>'+(v
       ? '<div class="ai-sec">'+mdRender(stripLeadHeadings(v))+'</div>'
@@ -1328,14 +1312,6 @@ function renderAiAcc(idx, data, via){
     return;
   }
   const j=data.parsed||{};
-  const secs=[
-    ['ipa','1. Phiên âm IPA (General American)'],
-    ['connected_speech','2. Nói nối (connected speech)'],
-    ['grammar','3. Phân tích ngữ pháp'],
-    ['meaning_vi','4. Dịch nghĩa & từ vựng'],
-    ['meaning_en','5. Meaning in English (A2)'],
-    ['context','6. Bối cảnh'],
-  ];
   let viaNote='';
   if(via && data.fails && data.fails.length){
     viaNote=' · bỏ qua: '+data.fails.map(f=>{ const c=f.indexOf(':'); return c>0? f.slice(0,c)+' ('+f.slice(c+1).trim().slice(0,48)+')' : f.slice(0,60); }).join(', ');
@@ -1344,12 +1320,12 @@ function renderAiAcc(idx, data, via){
     '<button class="ai-ref" title="Bỏ cache — gọi lại AI">'+(data.cached?'🔄':'🔄')+'</button>'+
     '<button class="ai-copy-btn" title="Copy toàn bộ">Copy</button>'+
     '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
-  for(const [k,title] of secs){
+  for(const [k,title] of AI_SECS){
     html+='<h5>'+title+'</h5><div class="ai-sec">'+mdRender(stripLeadHeadings(j[k]||'—'))+'</div>';
   }
   div.innerHTML=html;
   div.querySelector('.ai-copy-btn').addEventListener('click', ()=>{
-    const text=secs.map(([k,t])=>'### '+t+'\n'+String(j[k]||'')).join('\n\n');
+    const text=AI_SECS.map(([k,t])=>'### '+t+'\n'+String(j[k]||'')).join('\n\n');
     copyText(text, 'Đã copy toàn bộ phân tích');
   });
   div.querySelector('.ai-ref').addEventListener('click', ()=>aiRefresh(idx));
@@ -1357,7 +1333,7 @@ function renderAiAcc(idx, data, via){
 function aiCacheDelete(k){
   if(state.aiCacheMap) state.aiCacheMap.delete(k);
   try{
-    const store='op:ai:cache:'+(state.resumeKey||'f');
+    const store='op:ai2:cache:'+(state.resumeKey||'f');
     const o=JSON.parse(localStorage.getItem(store)||'{}');
     delete o[k];
     localStorage.setItem(store, JSON.stringify(o));
@@ -1397,7 +1373,7 @@ function mdRender(md){
 function aiParse(text){
   let t=String(text||'').replace(/<think>[\s\S]*?<\/think>/gi,'').trim().replace(/^```(?:json)?\s*/i,'').replace(/```\s*$/,'');
   const fixEsc=s=>s.replace(/\\(?![\\"\/bfnrtu])/g,'\\\\').replace(/[\u0000-\u001f]/g,' ');
-  const ok=j=>j&&(j.ipa||j.meaning_vi||j.context);
+  const ok=j=>j&&(j.meaning||j.context);
   let j=null;
   /* ưu tiên block JSON CUỐI (model reasoning hay viết suy nghĩ có ngoặc trước answer) */
   const ends=t.lastIndexOf('}');
@@ -1410,18 +1386,18 @@ function aiParse(text){
   }
   if(j) return j;
   /* fallback: bóc từng trường từ JSON lẫn prose (model free hay escape sai / lẫn prose) */
-  const fields=['ipa','connected_speech','grammar','meaning_vi','meaning_en','context'];
+  const fields=['meaning','context'];
   const out={}; let found=0;
   for(const f of fields){
     const fm=t.match(new RegExp('"'+f+'"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"','i'));
     if(fm){ try{ out[f]=JSON.parse('"'+fixEsc(fm[1])+'"'); found++; }catch{} }
   }
-  return found>=3? out : null;
+  return found>=1? out : null;
 }
 /* Stream: bóc field từ JSON đang chảy về (chưa hoàn chỉnh). Gọi lại với text dồn đủ dài —
    stateful scanner chạy từ sau vị trí đã chốt của lần trước, nên chi phí O(n) tổng */
 function aiPartial(text){
-  const FIELDS=['ipa','connected_speech','grammar','meaning_vi','meaning_en','context'];
+  const FIELDS=['meaning','context'];
   let t=String(text||'');
   if(/<\/think>/i.test(t)) t=t.replace(/[\s\S]*<\/think>/i,''); // bỏ khối reasoning trước JSON
   const out={}; let end=0;
@@ -2512,7 +2488,7 @@ $('#mpClose').addEventListener('click', ()=>$('#modelDlg').close());
 $('#modelDlg').addEventListener('click', e=>{ if(e.target===e.currentTarget) $('#modelDlg').close(); });
 $('#aiCacheClear').addEventListener('click', ()=>{
   let n=0;
-  for(const k of Object.keys(localStorage)){ if(k.startsWith('op:ai:cache:')){ localStorage.removeItem(k); n++; } }
+  for(const k of Object.keys(localStorage)){ if(k.startsWith('op:ai')){ localStorage.removeItem(k); n++; } }
   if(state.aiCacheMap) state.aiCacheMap.clear();
   toast('Đã xoá cache AI'+(n?' ('+n+' file)':''));
 });
