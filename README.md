@@ -53,7 +53,7 @@ Hover một câu trong transcript → bấm **✨** → video tự pause và AI 
 - Không muốn dùng cache? Nút **🔄** trên accordion = bỏ cache, gọi lại AI tươi mới. Muốn xoá sạch: ⚙ → "Xoá cache AI"
 - **Gemini explicit context caching**: ngữ cảnh toàn phim "bơm" 1 lần/h giờ, các câu hỏi sau chỉ gửi ~1KB; hết hạn tự tạo lại
 - OpenAI/OpenRouter: context cố định đầu request → tự hưởng automatic prompt caching
-- Không muốn gửi cả phim? Đổi ngữ cảnh sang "±5 câu" trong ⚙
+- Ngữ cảnh mặc định đã là "±5 câu" (gọn, rẻ); muốn AI hiểu cả phim thì đổi sang "Toàn bộ phim" trong ⚙ (Gemini caching sẽ bơm 1 lần/h giờ)
 
 ### Phím tắt
 
@@ -69,7 +69,7 @@ Hover một câu trong transcript → bấm **✨** → video tự pause và AI 
 | `0–9` | Nhảy tới 0–90% |
 | `?` | Bảng phím tắt |
 
-Mobile: tap video = hiện/ẩn control · **double-tap trái/phải = tua ∓ bước tua** (giống YouTube app).
+Mobile: **tap video = phát/dừng** · **double-tap trái/phải = tua ∓ bước tua** (giống YouTube app).
 
 ## Chạy trên điện thoại / tablet
 

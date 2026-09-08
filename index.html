@@ -684,7 +684,7 @@ kbd{
       <div class="hint">App tự phát hiện lỗi font và đề xuất bảng mã; chọn thủ công nếu cần.</div>
     </div>
     <div class="field">
-      <label>🤖 AI — phân tích câu thoại (khung 6 mục)</label>
+      <label>🤖 AI — phân tích câu thoại (2 mục)</label>
       <div class="hint" style="margin-bottom:8px">Danh sách provider theo thứ tự ưu tiên — cái lỗi tự rơi xuống cái kế tiếp (fallback). Bấm ✓ để bật/tắt.</div>
       <div id="aiChainRows"></div>
       <div class="row" style="margin-top:8px">
@@ -1014,7 +1014,7 @@ function renderTranscript(){
       '<div class="cue-actions">'+
       '<button class="cue-loop" title="Lặp câu / chọn đoạn A–B">'+
       '<svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></button>'+
-      '<button class="cue-ai" title="AI phân tích câu (IPA · nói nhanh · ngữ pháp · dịch)">'+
+      '<button class="cue-ai" title="AI phân tích câu (dịch nghĩa & từ vựng · bối cảnh)">'+
       '<svg viewBox="0 0 24 24"><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25z"/></svg></button>'+
       '<button class="cue-copy" title="Copy câu">'+
       '<svg viewBox="0 0 24 24"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg></button></div>';
@@ -1564,7 +1564,7 @@ async function aiCallOpenAIP(p, cue, idx, signal, onDelta){
   if(!res.ok){ const e=j?.error?.message || ('HTTP '+res.status); throw new Error(e.slice(0,160)); }
   const msg=j?.choices?.[0]?.message||{};
   if(!msg.content){
-    throw new Error('Model dùng hết token cho phần suy nghĩ (reasoning) mà chưa trả lời — tăng "Max tokens" trong ⚙ hoặc đổi model thường.');
+    throw new Error('Model dùng hết token cho phần suy nghĩ (reasoning) mà chưa trả lời — thử lại sẽ tự nâng budget; vẫn lỗi thì đổi model thường (đỡ reasoning).');
   }
   return {text:msg.content};
 }
