@@ -1403,7 +1403,7 @@ function aiPartial(text){
       if(ch==='"'){ closed=true; end=i+1; break; }
       v+=ch;
     }
-    try{ out[f]=JSON.parse('"'+v.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,' ')+'"'); }catch{ continue; }
+    try{ out[f]=JSON.parse('"'+v.replace(/[\u0000-\u001f]/g,' ')+'"'); }catch{ continue; }
     if(!closed) break; // field đang chảy — các field sau chưa viết tới
   }
   return out;
