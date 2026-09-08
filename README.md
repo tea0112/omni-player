@@ -35,7 +35,7 @@ python3 -m http.server 8080
 
 ## 🤖 AI phân tích câu thoại (2 mục)
 
-Hover một câu trong transcript → bấm **✨** → video tự pause và AI phân tích câu đó theo **2 mục**, render ngay dưới dòng phụ đề (không rời mắt). **Kết quả hiện dần từng mục** — model viết tới đâu hiện tới đó (stream SSE), không chờ cả khối; mục chưa tới hiện "…":
+Mỗi câu trong transcript có sẵn nút **✨** (luôn hiện) → bấm → video tự pause và AI phân tích câu đó theo **2 mục**, render ngay dưới dòng phụ đề (không rời mắt). **Kết quả hiện dần từng mục** — model viết tới đâu hiện tới đó (stream SSE), không chờ cả khối; mục chưa tới hiện "…":
 
 1. **Dịch nghĩa & từ vựng (Meaning & Vocabulary)** — dịch tiếng Việt chuẩn + 2-3 bản dịch tự nhiên theo phim + **Meaning in English (A2)** + bóc tách từ vựng/phrasal verbs kèm nhãn CEFR (nghĩa gốc vs nghĩa lóng/theo ngữ cảnh)
 2. **Bối cảnh trong tập phim** — đang xảy ra gì, ai nói với ai, câu nằm ở đâu trong cảnh, dẫn tới gì
