@@ -61,7 +61,7 @@ svg{display:block}
 /* subtitle overlay */
 #subOverlay{
   position:absolute; left:50%; transform:translateX(-50%);
-  bottom:max(var(--sub-bottom,14%), calc(70px + env(safe-area-inset-bottom))); /* không bao giờ chui dưới thanh điều khiển */
+  bottom:max(var(--sub-bottom,14%), calc(58px + env(safe-area-inset-bottom))); /* không bao giờ chui dưới thanh điều khiển */
   max-width:92%; text-align:center; white-space:pre-line;
   font-size:calc(clamp(15px,2.3vw,24px) * var(--sub-scale,1)); line-height:1.35; font-weight:500;
   color:var(--sub-color,#fff); text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.7);
@@ -113,50 +113,50 @@ svg{display:block}
 /* ===== Controls ===== */
 #controls{
   position:absolute; left:0; right:0; bottom:0; z-index:6;
-  padding:0 12px calc(6px + env(safe-area-inset-bottom));
+  padding:0 10px calc(4px + env(safe-area-inset-bottom));
   background:#101010; /* solid — gradient mờ làm phụ đề/video đè qua khó đọc */
   transition:opacity .2s, transform .2s;
 }
 
 #progressBar{
-  position:relative; height:16px; margin:0 -12px; cursor:pointer;
+  position:relative; height:10px; margin:0 -10px; cursor:pointer;
   touch-action:none;
 }
 #progressBar .track{
-  position:absolute; top:0; left:0; right:0; width:100%; height:4px;
+  position:absolute; top:0; left:0; right:0; width:100%; height:3px;
   background:rgba(255,255,255,.24); border-radius:0; overflow:visible; transition:height .12s;
 }
-#progressBar:hover .track, #progressBar.dragging .track{height:6px}
+#progressBar:hover .track, #progressBar.dragging .track{height:5px}
 #buffered{position:absolute; left:0; top:0; bottom:0; background:rgba(255,255,255,.38); border-radius:0; width:0}
 #played{position:absolute; left:0; top:0; bottom:0; background:var(--acc); border-radius:0; width:0}
 #loopRegion{position:absolute; top:0; bottom:0; background:rgba(240,64,64,.35); border:1px solid rgba(240,64,64,.8); border-radius:0}
 #loopRegion[hidden]{display:none}
 #thumb{
-  position:absolute; top:2px; width:12px; height:12px; border-radius:50%;
+  position:absolute; top:1.5px; width:10px; height:10px; border-radius:50%;
   background:var(--acc); transform:translate(-50%,-50%) scale(0); transition:transform .12s;
 }
 #progressBar:hover #thumb, #progressBar.dragging #thumb{transform:translate(-50%,-50%) scale(1)}
 #barTip{
-  position:absolute; bottom:20px; transform:translateX(-50%);
+  position:absolute; bottom:16px; transform:translateX(-50%);
   background:rgba(10,10,10,.9); padding:3px 8px; border-radius:5px;
   font-size:12px; font-variant-numeric:tabular-nums; pointer-events:none; white-space:nowrap;
 }
 #barTip[hidden]{display:none}
 
-.controls-row{display:flex; align-items:center; gap:2px; margin-top:4px}
+.controls-row{display:flex; align-items:center; gap:2px; margin-top:2px}
 .cbtn{
-  width:42px; height:42px; border-radius:50%; display:grid; place-items:center; flex:none;
+  width:36px; height:36px; border-radius:50%; display:grid; place-items:center; flex:none;
   touch-action:manipulation;
 }
 .cbtn:hover{background:rgba(255,255,255,.14)}
-.cbtn svg{width:21px;height:21px;fill:#fff}
-.cbtn.small svg{width:18px;height:18px}
+.cbtn svg{width:18px;height:18px;fill:#fff}
+.cbtn.small svg{width:16px;height:16px}
 .cbtn.off svg{opacity:.45}
 .cbtn .badge{position:absolute; display:none}
-.time{font-size:13.5px; color:#ddd; font-variant-numeric:tabular-nums; padding:0 8px; white-space:nowrap}
+.time{font-size:12.5px; color:#ddd; font-variant-numeric:tabular-nums; padding:0 6px; white-space:nowrap}
 .time .dur{color:var(--tx2)}
 #volWrap{position:relative; display:flex; align-items:center}
-#volPop{position:absolute; bottom:52px; left:2px; background:rgba(18,18,18,.97); border:1px solid #4d4d4d; border-radius:12px; padding:10px 6px; display:none; flex-direction:column; gap:6px; z-index:30; align-items:center; box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#volPop{position:absolute; bottom:46px; left:2px; background:rgba(18,18,18,.97); border:1px solid #4d4d4d; border-radius:12px; padding:10px 6px; display:none; flex-direction:column; gap:6px; z-index:30; align-items:center; box-shadow:0 8px 24px rgba(0,0,0,.5)}
 #volPop.open{display:flex}
 /* mobile: search thu gọn còn icon, bấm mới mở ô nhập */
 @media (hover:none) and (pointer:coarse){
@@ -391,7 +391,7 @@ svg{display:block}
 #playerShell:fullscreen .video-wrap, #playerShell:-webkit-full-screen .video-wrap{height:100%; aspect-ratio:auto}
 /* màn hình rất nhỏ: gọn control */
 @media (max-width:400px){
-  .cbtn{width:38px;height:38px}
+  .cbtn{width:32px;height:32px}
   #btnPip{display:none}
   .time{font-size:12px; padding:0 4px}
 }
@@ -538,7 +538,7 @@ kbd{
               <svg id="icVol" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
               <svg id="icMuted" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12A4.5 4.5 0 0 0 14 8v2.2l2.5 2.5v-.7zM19 12a7 7 0 0 1-1 3.6l1.5 1.5A9 9 0 0 0 21 12a9 9 0 0 0-7-8.8v2.1A7 7 0 0 1 19 12zM4.3 3 3 4.3 7.7 9H3v6h4l5 5v-6.7l4.3 4.3a7 7 0 0 1-2.3 1.3v2.1a9 9 0 0 0 3.7-2L19.7 21 21 19.7 4.3 3zM12 4l-2.1 2.1L12 8.2V4z"/></svg>
             </button>
-            <input type="range" id="volSlider" min="0" max="1" step="0.01" value="1" title="Âm lượng (↑/↓)" style="width:80px; accent-color:var(--acc)">
+            <input type="range" id="volSlider" min="0" max="1" step="0.01" value="1" title="Âm lượng (↑/↓)" style="width:70px; accent-color:var(--acc)">
             <div id="volPop">
               <button class="cbtn small" id="btnMuteV" title="Ẩm / hiện tiếng">
                 <svg id="icVolV" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
@@ -550,7 +550,7 @@ kbd{
           <div class="time"><span id="tCur">0:00</span> <span class="dur">/ <span id="tDur">0:00</span></span></div>
           <div class="spacer"></div>
           <div id="speedWrap">
-            <button class="cbtn small" id="btnSpeed" title="Tốc độ phát (&lt; &gt;)" style="width:auto; padding:0 10px; font-size:13.5px; font-weight:600; border-radius:999px; gap:2px"><span id="speedLabel">1×</span></button>
+            <button class="cbtn small" id="btnSpeed" title="Tốc độ phát (&lt; &gt;)" style="width:auto; padding:0 8px; font-size:12.5px; font-weight:600; border-radius:999px; gap:2px"><span id="speedLabel">1×</span></button>
             <div id="speedMenu" hidden></div>
           </div>
           <button class="cbtn small" id="btnCC" title="Ẩn/hiện phụ đề (C)">
