@@ -58,7 +58,7 @@ svg{display:block}
 /* subtitle overlay */
 #subOverlay{
   position:absolute; left:50%; transform:translateX(-50%);
-  bottom:max(var(--sub-bottom,14%), calc(106px + env(safe-area-inset-bottom))); /* không bao giờ chui dưới thanh điều khiển */
+  bottom:max(var(--sub-bottom,14%), calc(84px + env(safe-area-inset-bottom))); /* không bao giờ chui dưới thanh điều khiển */
   max-width:92%; text-align:center; white-space:pre-line;
   font-size:calc(clamp(15px,2.3vw,24px) * var(--sub-scale,1)); line-height:1.35; font-weight:500;
   color:var(--sub-color,#fff); text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.7);
@@ -110,7 +110,7 @@ svg{display:block}
 /* ===== Controls ===== */
 #controls{
   position:absolute; left:0; right:0; bottom:0; z-index:6;
-  padding:26px 10px calc(6px + env(safe-area-inset-bottom));
+  padding:4px 10px calc(6px + env(safe-area-inset-bottom));
   background:#101010; /* solid — gradient mờ làm phụ đề/video đè qua khó đọc */
   transition:opacity .2s, transform .2s;
 }
@@ -312,7 +312,7 @@ svg{display:block}
 .ai-acc .ai-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px}
 .ai-acc .ai-title{font-size:12px; font-weight:700; letter-spacing:.3px; color:var(--acc2)}
 .ai-acc .ai-head-r{display:flex; align-items:center; gap:4px}
-.ai-acc .ai-head button{min-width:34px; height:34px; border-radius:8px; display:grid; place-items:center; font-size:11.5px; color:#bbb; padding:0 10px} /* ≥34px — dễ chạm trên iPad */
+.ai-acc .ai-head button{min-width:34px; height:34px; border-radius:8px; display:grid; place-items:center; font-size:12px; color:#bbb; padding:0 8px; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent} /* ≥34px — dễ chạm trên iPad */
 .ai-acc .ai-head button:hover{background:#ffffff14; color:#fff}
 .ai-acc .ai-head button svg{width:13px; height:13px; fill:currentColor}
 .ai-acc h5{margin:10px 0 4px; font-size:12.5px; color:var(--acc2)}
@@ -1266,12 +1266,18 @@ function closeAiAcc(){
   const el=document.querySelector('.ai-acc'); if(el) el.remove();
   if(state.aiCtrl){ state.aiCtrl.abort(); state.aiCtrl=null; }
 }
+document.addEventListener('click', e=>{
+  if(e.target.closest('.ai-close')){ e.preventDefault(); closeAiAcc(); }
+});
 function openAiAcc(idx){
   closeAiAcc();
   const row=rows[idx]; if(!row) return;
   const div=document.createElement('div');
   div.className='ai-acc';
-  div.innerHTML='<div class="ai-load"><span class="spin"></span> AI đang phân tích câu này…</div>';
+  div.innerHTML='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI</span><span class="ai-head-r">'+
+    '<span class="spin" style="width:12px;height:12px"></span>'+
+    '<button class="ai-close" title="Đóng" onclick="closeAiAcc()">✕</button></span></div>'+
+    '<div class="ai-load">AI đang phân tích câu này…</div>';
   row.after(div);
   div.scrollIntoView({block:'nearest', behavior:'smooth'});
 }
@@ -1284,7 +1290,7 @@ function renderAiAccStream(idx, partial){
   const div=document.querySelector('.ai-acc'); if(!div) return;
   let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI</span><span class="ai-head-r">'+
     '<span class="spin" style="width:12px;height:12px"></span>'+
-    '<button title="Đóng" onclick="closeAiAcc()">✕</button></span></div>';
+    '<button class="ai-close" title="Đóng" onclick="closeAiAcc()">✕</button></span></div>';
   for(const [k,title] of AI_SECS){
     const v=partial && partial[k];
     html+='<h5>'+title+'</h5>'+(v
@@ -1296,7 +1302,7 @@ function renderAiAccStream(idx, partial){
 function renderAiAcc(idx, data, via){
   const div=document.querySelector('.ai-acc'); if(!div) return;
   if(data.error){
-    div.innerHTML='<div class="ai-head"><span class="ai-title">AI</span><button title="Đóng" onclick="closeAiAcc()">✕</button></div>'+
+    div.innerHTML='<div class="ai-head"><span class="ai-title">AI</span><button class="ai-close" title="Đóng" onclick="closeAiAcc()">✕</button></div>'+
       '<div class="ai-err">⚠ '+escHtml(data.error)+'<button class="ai-retry" data-retry="'+idx+'">Thử lại</button></div>';
     div.querySelector('[data-retry]').addEventListener('click', ()=>aiAnalyze(idx));
     return;
@@ -1308,12 +1314,13 @@ function renderAiAcc(idx, data, via){
   }
   let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI'+(via?' <span style="color:#999;font-weight:400">· via '+escHtml(via+viaNote)+'</span>':'')+'</span><span class="ai-head-r">'+
     '<button class="ai-ref" title="Bỏ cache — gọi lại AI">🔄</button>'+
-    '<button title="Đóng" onclick="closeAiAcc()">✕</button></span></div>';
+    '<button class="ai-copy-btn" title="Copy toàn bộ">📋</button>'+
+    '<button class="ai-close" title="Đóng" onclick="closeAiAcc()">✕</button></span></div>';
   for(const [k,title] of AI_SECS){
     html+='<h5>'+title+'</h5><div class="ai-sec">'+mdRender(stripLeadHeadings(j[k]||'—'))+'</div>';
   }
   div.innerHTML=html;
-  div.querySelector('.ai-copy-btn').addEventListener('click', ()=>{
+  div.querySelector('.ai-copy-btn')?.addEventListener('click', ()=>{
     const text=AI_SECS.map(([k,t])=>'### '+t+'\n'+String(j[k]||'')).join('\n\n');
     copyText(text, 'Đã copy toàn bộ phân tích');
   });
