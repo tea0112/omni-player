@@ -312,7 +312,7 @@ svg{display:block}
 .ai-acc .ai-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px}
 .ai-acc .ai-title{font-size:12px; font-weight:700; letter-spacing:.3px; color:var(--acc2)}
 .ai-acc .ai-head-r{display:flex; align-items:center; gap:4px}
-.ai-acc .ai-head button{min-width:26px; height:26px; border-radius:6px; display:grid; place-items:center; font-size:11.5px; color:#bbb; padding:0 6px}
+.ai-acc .ai-head button{min-width:34px; height:34px; border-radius:8px; display:grid; place-items:center; font-size:11.5px; color:#bbb; padding:0 10px} /* ≥34px — dễ chạm trên iPad */
 .ai-acc .ai-head button:hover{background:#ffffff14; color:#fff}
 .ai-acc .ai-head button svg{width:13px; height:13px; fill:currentColor}
 .ai-acc h5{margin:10px 0 4px; font-size:12.5px; color:var(--acc2)}
@@ -1284,7 +1284,7 @@ function renderAiAccStream(idx, partial){
   const div=document.querySelector('.ai-acc'); if(!div) return;
   let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI</span><span class="ai-head-r">'+
     '<span class="spin" style="width:12px;height:12px"></span>'+
-    '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
+    '<button title="Đóng" onclick="closeAiAcc()">✕</button></span></div>';
   for(const [k,title] of AI_SECS){
     const v=partial && partial[k];
     html+='<h5>'+title+'</h5>'+(v
@@ -1296,7 +1296,7 @@ function renderAiAccStream(idx, partial){
 function renderAiAcc(idx, data, via){
   const div=document.querySelector('.ai-acc'); if(!div) return;
   if(data.error){
-    div.innerHTML='<div class="ai-head"><span class="ai-title">AI</span><button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></div>'+
+    div.innerHTML='<div class="ai-head"><span class="ai-title">AI</span><button title="Đóng" onclick="closeAiAcc()">✕</button></div>'+
       '<div class="ai-err">⚠ '+escHtml(data.error)+'<button class="ai-retry" data-retry="'+idx+'">Thử lại</button></div>';
     div.querySelector('[data-retry]').addEventListener('click', ()=>aiAnalyze(idx));
     return;
@@ -1308,7 +1308,7 @@ function renderAiAcc(idx, data, via){
   }
   let html='<div class="ai-head"><span class="ai-title">✨ AI PHÂN TÍCH CÂU THOẠI'+(via?' <span style="color:#999;font-weight:400">· via '+escHtml(via+viaNote)+'</span>':'')+'</span><span class="ai-head-r">'+
     '<button class="ai-ref" title="Bỏ cache — gọi lại AI">🔄</button>'+
-    '<button title="Đóng" onclick="this.closest(\'.ai-acc\').remove()">✕</button></span></div>';
+    '<button title="Đóng" onclick="closeAiAcc()">✕</button></span></div>';
   for(const [k,title] of AI_SECS){
     html+='<h5>'+title+'</h5><div class="ai-sec">'+mdRender(stripLeadHeadings(j[k]||'—'))+'</div>';
   }
@@ -1432,6 +1432,23 @@ function netFailMsg(p){
     ? 'NVIDIA NIM chặn gọi trực tiếp từ browser (CORS) — thêm OpenRouter (có model NVIDIA) làm provider dự phòng'
     : 'Trình duyệt không kết nối được provider này (mạng / VPN / Shields / CORS)';
 }
+/* watchdog: không nhận byte nào trong idleMs → hủy stream, tránh treo "đang phân tích" vĩnh viễn */
+function readWithTimeout(reader, idleMs){
+  const t=idleMs||state.ai._testSseTimeout||60000;
+  let timer=null, timedOut=false;
+  return Promise.race([
+    reader.read().then(res=>{ if(timedOut) throw new Error('AI không phản hồi (timeout) — thử lại'); return res; }),
+    new Promise((_,rej)=>{ timer=setTimeout(()=>{ timedOut=true; reader.cancel().catch(()=>{}); rej(new Error('AI không phản hồi (timeout) — thử lại')); }, t); }),
+  ]).finally(()=>clearTimeout(timer));
+}
+function jsonWithTimeout(res){
+  const t=state.ai._testSseTimeout||60000;
+  let timer=null;
+  return Promise.race([
+    res.json(),
+    new Promise((_,rej)=>{ timer=setTimeout(()=>rej(new Error('AI không phản hồi (timeout) — thử lại')), t); }),
+  ]).finally(()=>clearTimeout(timer));
+}
 async function aiCallGeminiP(p, cue, idx, signal, onDelta){
   const ctx=aiCtxText(idx);
   const q='Analyze the subtitle cue at ['+vttTs(cue.start)+' → '+vttTs(cue.end)+']: "'+cue.text.replace(/\n/g,' ')+'"';
@@ -1460,7 +1477,7 @@ async function aiCallGeminiP(p, cue, idx, signal, onDelta){
     const reader=res.body.getReader(), dec=new TextDecoder();
     let buf='', text='';
     for(;;){
-      const {done, value}=await reader.read();
+      const {done, value}=await readWithTimeout(reader);
       if(done) break;
       buf+=dec.decode(value, {stream:true});
       let frame;
@@ -1482,13 +1499,13 @@ async function aiCallGeminiP(p, cue, idx, signal, onDelta){
     return text;
   };
   let res=await call(0, !!onDelta);
-  let text=onDelta ? await readSSE(res) : (await res.json()).candidates?.[0]?.content?.parts?.map(pp=>pp.text||'').join('') || '';
+  let text=onDelta ? await readSSE(res) : (await jsonWithTimeout(res)).candidates?.[0]?.content?.parts?.map(pp=>pp.text||'').join('') || '';
   if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('Gemini HTTP '+res.status+': '+e.slice(0,160)); }
   /* reasoning đốt hết budget chưa kịp trả lời -> nâng token thử lại (không stream lần retry) */
   if(!text){
     res=await call(65536, false);
     if(!res.ok){ const e=await res.text().catch(()=> ''); throw new Error('Gemini HTTP '+res.status+': '+e.slice(0,160)); }
-    const j=await res.json();
+    const j=await jsonWithTimeout(res);
     text=j.candidates?.[0]?.content?.parts?.map(pp=>pp.text||'').join('') || '';
   }
   return {text, streamed:!!onDelta};
@@ -1521,7 +1538,7 @@ async function aiCallOpenAIP(p, cue, idx, signal, onDelta){
     const reader=res.body.getReader(), dec=new TextDecoder();
     let buf='', text='';
     for(;;){
-      const {done, value}=await reader.read();
+      const {done, value}=await readWithTimeout(reader);
       if(done) break;
       buf+=dec.decode(value, {stream:true});
       let frame;
@@ -1545,11 +1562,11 @@ async function aiCallOpenAIP(p, cue, idx, signal, onDelta){
   }
   /* không stream: đường cũ — dùng cho retry budget reasoning */
   let res=await call(0, false);
-  let j=await res.json().catch(()=>null);
+  let j=await jsonWithTimeout(res).catch(()=>null);
   const noAnswer=()=>{ const msg=j?.choices?.[0]?.message; return res.ok && !msg?.content && (j?.choices?.[0]?.finish_reason==='length' || msg?.reasoning); };
   /* model reasoning đốt token vào suy nghĩ chưa kịp trả lời -> nâng budget thử lại */
-  if(noAnswer()){ res=await call(32000, false); j=await res.json().catch(()=>null); }
-  if(noAnswer()){ res=await call(65000, false); j=await res.json().catch(()=>null); }
+  if(noAnswer()){ res=await call(32000, false); j=await jsonWithTimeout(res).catch(()=>null); }
+  if(noAnswer()){ res=await call(65000, false); j=await jsonWithTimeout(res).catch(()=>null); }
   if(!res.ok){ const e=j?.error?.message || ('HTTP '+res.status); throw new Error(e.slice(0,160)); }
   const msg=j?.choices?.[0]?.message||{};
   if(!msg.content){
@@ -2293,7 +2310,10 @@ $('#btnSettings').addEventListener('click', ()=>{
 $('#setClose').addEventListener('click', ()=>{ aiCollect(); settingsDialog.close(); });
 $('#btnShortcuts').addEventListener('click', ()=>{ renderShortcuts(); shortcutsDialog.showModal(); });
 $('#scClose').addEventListener('click', ()=>shortcutsDialog.close());
-[settingsDialog,shortcutsDialog].forEach(d=>d.addEventListener('close', e=>{ if(e.target===settingsDialog) aiCollect(); }));
+[settingsDialog,shortcutsDialog].forEach(d=>{
+  d.addEventListener('click', e=>{ if(e.target===d) d.close(); }); // click ngoài panel = đóng
+  d.addEventListener('close', e=>{ if(e.target===settingsDialog) aiCollect(); });
+});
 
 const STEP_PRESETS=[1,3,5,10,15,30];
 for(const v of STEP_PRESETS){
