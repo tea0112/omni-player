@@ -472,7 +472,7 @@ Chain runner (line ~1612): thêm nhánh `p.type==='cloud' ? await aiCallCloudP(p
 ### Task 8: Deploy scripts, upload, README setup guide, regression
 
 **Files:**
-- Create: `cloud/upload.sh`, `cloud/deploy.sh`, `cloud/README.md`, `cloud/fixtures/.gitkeep`
+- Create: `cloud/upload.py`, `cloud/deploy.sh`, `cloud/README.md`, `cloud/fixtures/.gitkeep`
 - Modify: `README.md` (mục Deploy thêm link cloud/README.md)
 
 - [ ] **Step 1: `cloud/deploy.sh`**
@@ -484,19 +484,25 @@ cp ../index.html public/index.html
 npx wrangler deploy
 ```
 
-- [ ] **Step 2: `cloud/upload.sh`**
-```bash
-#!/usr/bin/env bash
-# Dùng: ./upload.sh <file...>   |  file >300MB: khuyến nghị rclone (xem README)
-set -euo pipefail
-for f in "$@"; do
-  case "${f##*.}" in
-    mp4|m4v) ct=video/mp4;; webm) ct=video/webm;; mkv) ct=video/x-matroska;;
-    *) ct=application/octet-stream;;
-  esac
-  npx wrangler r2 object put "omni-videos/$(basename "$f")" --file "$f" --content-type "$ct"
-done
+- [ ] **Step 2: `cloud/upload.py`** — uploader Python thuần (stdlib `boto3`-free: dùng `boto3` nếu có, fallback S3 REST + SigV4 tự ký bằng stdlib), hỗ trợ **multipart upload cho mọi kích thước** (R2: part ≥ 5MB, part number 1–10000, complete sau khi upload hết parts):
+
+Giao diện dòng lệnh:
 ```
+python3 cloud/upload.py video1.mp4 video2.mkv            # upload nhiều file
+python3 cloud/upload.py "Phim/"                          # đệ quy cả thư mục (chỉ mp4/webm/mkv)
+python3 cloud/upload.py Phim --prefix "phimle/"          # upload vào thư mục con trên R2
+python3 cloud/upload.py file.mp4 --part-size 64          # chỉnh part size (MB)
+```
+
+Yêu cầu chức năng:
+- **Env credentials** (không lưu file nào trong repo): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — README hướng dẫn tạo S4 token trong dashboard (R2 → Manage API Tokens). Thiếu → exit 1 với thông báo rõ.
+- **Multipart khi file > part-size** (mặc định 64MB): CreateMultipartUpload → PUT từng part (tuần tự, retry 3 lần mỗi part với backoff) → CompleteMultipartUpload; abort (AbortMultipartUpload) khi Ctrl-C/lỗi để không rác part tính tiền.
+- **Skip file đã có**: HEAD object trước; nếu tồn tại + cùng size → bỏ qua (in `skip`). `--force` để ghi đè.
+- **Content-type** map như cũ (mp4/m4v → video/mp4, webm → video/webm, mkv → video/x-matroska, else application/octet-stream) — set ở CreateMultipartUpload/PUT header.
+- **Progress**: in mỗi part `part 3/12 ✓ (192MB/768MB)`.
+- Chỉ stdlib (`urllib.request`, `hashlib`, `hmac`, `datetime`, `xml.etree`) — tự ký SigV4 (canonical request → string-to-sign → HMAC chain). KHÔNG bắt buộc boto3; nếu boto3 có sẵn và `--boto3` flag thì dùng boto3 (ngắn hơn, giữ làm opt-in vì cài thêm dependency).
+
+Kiểm chứng: tạo file giả 130MB (`dd if=/dev/zero of=/tmp/t.mp4 bs=1M count=130`), chạy upload.py với credentials test (miniflare R2 không hỗ trợ S4 API — dùng R2 thật khi user setup, hoặc localstack nếu có; tối thiểu: SigV4 signing test với vector có sẵn + dry-run mode `--dry-run` in các request sẽ gửi). Acceptance: `--dry-run` in đúng sequence (HEAD → CREATE → PART×3 → COMPLETE) cho file 130MB part-size 64; SigV4 signature khớp vector test AWS (string-to-sign well-known).
 
 - [ ] **Step 3: `cloud/README.md`** — từng bước dashboard (user tự làm, có wizard-style checklist):
   1. `wrangler login` (browser) → tạo bucket `wrangler r2 bucket create omni-videos`, KV `wrangler kv namespace create DATA` → dán id vào wrangler.jsonc.
@@ -506,7 +512,7 @@ done
   5. Rate limiting: dashboard → Security → Rate limiting rules → hostname `player.<domain>` 60 req/10s/IP block 60s.
   6. WAF custom rule: `(http.request.uri.path contains ".php") or (http.request.uri.path eq "/wp-admin") or (http.request.uri.path contains ".env")` → Managed Challenge. Bot Fight Mode ON. SSL/TLS Full + Always Use HTTPS ON.
   7. `./deploy.sh` → mở `https://player.<domain>` → login OTP → dùng.
-  8. Upload: `./upload.sh phim.mp4` hoặc rclone config (endpoint `https://<accountid>.r2.cloudflarestorage.com`, bucket `omni-videos`) cho file lớn.
+  8. Upload: tạo R2 API token (R2 → Manage API Tokens → Object Read & Write) → `export R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=...` rồi `python3 cloud/upload.py phim.mp4` (multipart tự động cho file lớn; `--dry-run` để xem trước).
   9. Rollback: `npx wrangler rollback`.
 
 - [ ] **Step 4: Regression local** — mở `index.html` trực tiếp (file://) + qua `python3 -m http.server`: phát, phụ đề, resume, AI chain local (mock), phím tắt — checklist 10 mục spec §7. `npm test` toàn bộ cloud tests PASS.

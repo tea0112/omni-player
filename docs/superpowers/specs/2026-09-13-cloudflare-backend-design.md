@@ -43,7 +43,7 @@ cloud/
   src/data.ts             # KV read/write + throttle helpers
   test/worker.test.ts     # vitest-pool-workers
   public/index.html       # copy từ repo root lúc deploy (không sửa tay)
-  upload.sh               # upload video lên R2 (wrangler; rclone cho file lớn)
+  upload.py               # upload video lên R2 bằng S3 API + SigV4 (Python stdlib, multipart)
   README.md               # setup guide: dashboard Access/WAF/rate limit, secrets, domain
 ```
 
@@ -80,9 +80,12 @@ cloud/
 
 ## 5. Upload (đã duyệt hướng: script từ máy, không UI)
 
-- `cloud/upload.sh`:
-  - Mặc định `wrangler r2 object put "omni-videos/<basename>" --file <file> --content-type <theo đuôi>` — mp4 → `video/mp4`, webm → `video/webm`, mkv → `video/x-matroska`.
-  - File > ~300MB: khuyến nghị rclone (multipart, resume) — README ghi sẵn config: `rclone config` remote S3 endpoint `https://<accountid>.r2.cloudflarestorage.com`, rồi `rclone copy Phim r2:omni-videos --include "*.mp4" --include "*.webm"`.
+- `cloud/upload.py` — Python thuần (stdlib, không bắt buộc dependency):
+  - Gọi thẳng S3 REST API của R2 (`https://<accountid>.r2.cloudflarestorage.com/omni-videos/...`) tự ký **SigV4** bằng stdlib (`hmac`/`hashlib`).
+  - **Multipart upload cho file lớn** (>64MB mặc định, part 5MB–5GB, tối đa 10k parts): Create → PUT từng part (retry 3 lần) → Complete; lỗi/Ctrl-C → Abort để không rác part. File nhỏ → PUT đơn.
+  - Credentials qua env `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (tạo trong R2 → Manage API Tokens). Không lưu credential trong repo.
+  - Skip file đã có cùng size (HEAD trước), `--force` ghi đè; đệ quy thư mục; `--dry-run` in kế hoạch; progress per-part.
+  - Content-type map: mp4/m4v → `video/mp4`, webm → `video/webm`, mkv → `video/x-matroska`, else `application/octet-stream`.
   - Bucket **không public** (`allowPublicAccess` bỏ trống/false) — chỉ Worker binding đọc được.
 - R2 free tier đủ dùng: 10GB storage, egress 0₫, Class B ops 10M/tháng (mỗi range request = 1 op Class B).
 - Quy ước đặt file: giữ nguyên tên có dấu — Worker encode/decode UTF-8 qua `encodeURIComponent`.
