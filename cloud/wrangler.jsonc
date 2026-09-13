@@ -1,0 +1,13 @@
+{
+  "name": "omni-player",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": { "directory": "./public", "not_found_handling": "single-page-application", "binding": "ASSETS" },
+  "r2_buckets": [{ "binding": "VIDEOS", "bucket_name": "omni-videos" }],
+  // DATA: thay "PLACEHOLDER_RUN_WRANGLER_KV_CREATE" bằng id thật — chạy
+  // `wrangler kv namespace create DATA` rồi đọc id in ra ở output.
+  "kv_namespaces": [{ "binding": "DATA", "id": "PLACEHOLDER_RUN_WRANGLER_KV_CREATE" }],
+  "ratelimits": [{ "name": "AI_RL", "namespace": 1001, "limit": 30, "period": 60 }],
+  "vars": { "ACCESS_TEAM": "", "ACCESS_AUD": "" },
+  "workers_dev": false
+}

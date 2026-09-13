@@ -6,3 +6,5 @@
 Thumbs.db
 __pycache__/
 test-media/
+cloud/.dev.vars
+cloud/.wrangler/
