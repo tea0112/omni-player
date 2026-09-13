@@ -209,7 +209,8 @@ git add cloud/ .gitignore && git commit -m "cloud: scaffold worker + Access JWT 
 
 **Interfaces:**
 - Consumes: `Env.VIDEOS` (R2Bucket), `verifyAccess` từ Task 1.
-- Produces: `parseRange(header: string | null, size: number): { start: number; end: number } | null | "invalid"` — `null` = không có header (trả full), `"invalid"` = sai cú pháp/không khả thi (416); `handleVideo(request, env, name): Promise<Response>`.
+- Produces: `parseRange(header: string | null, size: number): { start: number; end: number } | null | "invalid"` — `null` = không có header (trả full), `"invalid"` = sai cú pháp/không khả thi (416); `handleVideo(request, env, name): Promise<Response>`; `handleHls(request, env, name): Promise<Response>` (chung core R2-get, khác cache-control + content-type theo đuôi: `.m3u8` → `application/vnd.apple.mpegurl` + `public,max-age=60`; `.ts` → `video/mp2t` + `public,max-age=31536000,immutable`; video thường → `private,max-age=0` như cũ).
+- Routes: `/v/<file>` range-request file raw (fallback file không HLS); `/hls/<dir>/index.m3u8` + `/hls/<dir>/segN.ts` (HLS chính).
 
 - [ ] **Step 1: Failing tests**
 
@@ -311,12 +312,18 @@ if (url.pathname.startsWith("/v/")) {
   if (!name || name.includes("..")) return json({ error: "bad name" }, 400);
   return handleVideo(request, env, name);
 }
+if (url.pathname.startsWith("/hls/")) {
+  const name = decodeURIComponent(url.pathname.slice(5));
+  if (!name || name.includes("..") || !(name.endsWith(".m3u8") || name.endsWith(".ts"))) return json({ error: "bad name" }, 400);
+  return handleHls(request, env, name);
+}
 ```
+Test thêm: `/hls/x/index.m3u8` trả content-type `application/vnd.apple.mpegurl` + cache-control `public,max-age=60`; `/hls/x/seg0.ts` → `video/mp2t` + immutable; `/hls/x/evil.txt` → 400.
 Chạy `npm test` → PASS.
 
 - [ ] **Step 3: Commit**
 ```bash
-git add cloud/src/video.ts cloud/test/video.test.ts cloud/src/worker.ts && git commit -m "cloud: R2 video stream với Range/206/416"
+git add cloud/src/video.ts cloud/test/video.test.ts cloud/src/worker.ts && git commit -m "cloud: R2 video stream Range/206/416 + HLS /hls/* (m3u8/ts, cache immutable)"
 ```
 
 ---
@@ -376,8 +383,8 @@ Body flow: đọc text (cap 64KB) → JSON.parse → tra PROVIDERS → nếu thi
 - Modify: `index.html` (4 vùng: boot detect, toolbar button ~line 467, panel list + CSS, `setVideo` ~2025 + `sessionKey` 2140)
 
 **Interfaces:**
-- Consumes: `GET /api/me`, `GET /api/videos`, `GET /v/<name>` (Tasks 1–3).
-- Produces: `state.cloud: { email: string } | null`; `state.videoFile` nhận thêm file-like cloud object `{ name, size, lastModified: 0, cloud: true }` (truthy, có .name/.size/.lastModified → toàn bộ code hiện tại dùng truthiness + metadata chạy không đổi); `cloudOpenVideo(name, size)`; nút `#btnCloud`.
+- Consumes: `GET /api/me`, `GET /api/videos`, `GET /v/<name>`, `GET /hls/<dir>/index.m3u8` (Tasks 1–3).
+- Produces: `state.cloud: { email: string } | null`; `state.videoFile` nhận thêm file-like cloud object `{ name, size, lastModified: 0, cloud: true, hls: true }` (plain object KHÔNG dùng `new File()` — `File.size`/`lastModified` là getter readonly, Object.assign không ghi đè được; code app chỉ đọc `.name/.size/.lastModified`); `cloudOpenVideo(name, size, hlsDir)`; nút `#btnCloud`; hls.js self-host tại `cloud/public/hls.js` (download 1 lần từ CDN lúc build, commit thẳng file — không CDN runtime vì Zero Trust domain không nên phụ thuộc third-party).
 
 - [ ] **Step 1: Cloud detect lúc boot** — trong init chính (tìm chỗ gọi `loadSettings()`/init — chạy một lần DOMContentLoaded): 
 ```js
@@ -395,18 +402,31 @@ async function cloudInit(){
 
 - [ ] **Step 2: Nút ☁ + panel** — toolbar thêm `<button class="tb" id="btnCloud" hidden title="Video trên cloud">☁</button>` cạnh `#btnOpenVideo` (line ~467). Panel dạng popover (dùng pattern panel hiện có, ví vụ welcome list): click ☁ → `fetch('/api/videos')` → render danh sách `<div class="cv-row"> tên + (size MB)` → click row → `cloudOpenVideo(name,size)` → đóng panel. Empty → "Cloud trống — xem README phần upload." Loading state + lỗi → toast.
 
-- [ ] **Step 3: `cloudOpenVideo` + setVideo hỗ trợ cloud**
+- [ ] **Step 3: `cloudOpenVideo` + setVideo hỗ trợ cloud/HLS**
 ```js
-function cloudOpenVideo(name, size){
-  setVideo(Object.assign(new File([], name), { size, lastModified: 0, cloud: true }), null);
+function cloudOpenVideo(name, size, hlsDir){
+  setVideo({name, size, lastModified: 0, cloud: true, hls: !!hlsDir, hlsDir}, null);
 }
 ```
-`setVideo` sửa 2 dòng: `if(state.videoUrl) URL.revokeObjectURL(state.videoUrl);` giữ nguyên (cloud: videoUrl null); dòng gán src:
+`setVideo` sửa phần gán src (sau `saveSession()`, giữ các reset state hiện có):
 ```js
-if(file.cloud){ state.videoUrl=null; video.src='/v/'+encodeURIComponent(file.name); }
-else { state.videoUrl=URL.createObjectURL(file); video.src=state.videoUrl; }
+if(file.cloud){
+  state.videoUrl=null;
+  if(file.hls && window.Hls && Hls.isSupported()){
+    if(state.hls){ state.hls.destroy(); state.hls=null; }
+    state.hls=new Hls({maxBufferLength:30}); state.hls.loadSource('/hls/'+file.hlsDir+'/index.m3u8'); state.hls.attachMedia(video);
+  } else if(file.hls && video.canPlayType('application/vnd.apple.mpegurl')){
+    video.src='/hls/'+encodeURIComponent(file.hlsDir)+'/index.m3u8'; // Safari native
+  } else {
+    video.src='/v/'+encodeURIComponent(file.name); // fallback range-request
+  }
+} else { state.videoUrl=URL.createObjectURL(file); video.src=state.videoUrl; }
 ```
-`sessionKey` (line 2140) không đổi — cloud file lastModified=0 cho key ổn định `op:pos:v1:name:size:0`. `historyUpsert` (2133) đọc `.name/.size/.lastModified` — hoạt động. Đánh dấu cloud entry trong history để UI "Tiếp tục xem" biết nguồn: patch thêm `cloud:!!file.cloud` vào historyUpsert call trong setVideo (tham số patch `{cloud:!!file.cloud}`).
+- `state.hls` thêm vào state object; `setVideo` đầu hàm destroy instance cũ; cleanup khi đóng app không cần (instance sống cùng page).
+- `fileChip`/toast hiện tên file như cũ (`file.name` nguyên vẹn).
+- **`/api/videos` hợp tác:** response mỗi item `{name, size, hlsDir|null}` — Task 3 định nghĩa: item có `<dir>/index.m3u8` cùng prefix → `hlsDir=<dir>`.
+`sessionKey` (line 2140) không đổi — cloud file lastModified=0 cho key ổn định. `historyUpsert` (2133) đọc `.name/.size/.lastModified` — hoạt động. Patch thêm `cloud:!!file.cloud` vào historyUpsert call trong setVideo.
+**Chú ý lỗi preload metadata:** HLS qua hls.js không set `video.src` trực tiếp — mọi chỗ app giả định `video.src` non-empty phải check `state.hls || video.src` (audit chỗ errOverlay/bigPlay logic line ~1812-1843).
 
 **Kiểm tra không phá local:** `python3 -m http.server 8080` + mở app → phát file local, resume, phụ đề — như cũ (btnCloud vẫn hidden vì /api/me 404).
 

@@ -90,6 +90,23 @@ cloud/
 - R2 free tier đủ dùng: 10GB storage, egress 0₫, Class B ops 10M/tháng (mỗi range request = 1 op Class B).
 - Quy ước đặt file: giữ nguyên tên có dấu — Worker encode/decode UTF-8 qua `encodeURIComponent`.
 
+## 5b. HLS streaming (chủ đích: HLS object-per-segment, hls_time 10s)
+
+Video trên cloud phát bằng **HLS**: upload script tự transcode + chia segment bằng ffmpeg **trước khi** lên R2.
+
+**Lý do HLS thay vì range-request file gốc:** segment `.ts` nhỏ là object bất biến → CDN edge cache `immutable` vĩnh viễn, tua lại = hit cache không đụng R2; Worker delivery gần như 0 CPU; chuẩn HLS phát được mọi browser Safari native + hls.js elsewhere. Range-request trên file gốc vẫn giữ cho file **không convert được** (fallback).
+
+**Pipeline transcode (upload.py gọi ffmpeg):**
+- Input mp4/webm/mkv → ffmpeg `-c:v libx264 -preset veryfast -crf 21 -c:a aac -b:a 160k -hls_time 10 -hls_playlist_type vod -hls_segment_filename 'seg%d.ts' index.m3u8` (tham số `-hls_time 10` = **segment 10 giây theo yêu cầu**; ffmpeg tự chèn split tại keyframe gần nhất ≥10s).
+- **Keep-original branch:** video đã H.264 8-bit + AAC → `-c copy` (không re-encode, chỉ cắt segment) — giống nguyên tắc tools/convert-for-web.py hiện có.
+- Output thư mục `<basename>/`: `index.m3u8` + `seg0.ts…segN.ts` (+ `master.m3u8` 1 rendition, giữ chỗ multi-bitrate tương lai).
+- Upload R2: m3u8 → `application/vnd.apple.mpegurl`, .ts → `video/mp2t`. Key R2: `<prefix><basename>/index.m3u8`, `<prefix><basename>/seg7.ts`.
+- File quá nhỏ (<30s / ffmpeg lỗi) → giữ nguyên đường range-request cũ (upload raw, không segment).
+
+**Worker route mới:** `GET /hls/*` → như `/v/*` (R2 get, nhưng m3u8/.ts). m3u8 trả kèm `Cache-Control: public,max-age=60`; .ts trả `Cache-Control: public,max-age=31536000,immutable`. App `<video>` thay bằng **hls.js** (self-host 1 file JS trong cloud/public/, ~500KB) khi `file.cloud && Hls.isSupported()`; Safari native dùng src=m3u8 trực tiếp.
+
+**Local mode KHÔNG đổi:** file local phát bằng blob như cũ, không HLS.
+
 ## 6. Rate limit + Firewall/WAF (mới — trình duyệt lần 1)
 
 Tầng edge (dashboard, setup guide ghi từng bước):
