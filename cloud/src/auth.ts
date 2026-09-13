@@ -24,10 +24,14 @@ export async function verifyAccess(request: Request, env: Env): Promise<{ email:
   const [h, p, s] = token.split(".");
   if (!h || !p || !s) return null;
   const head = parseJson(new TextDecoder().decode(b64u(h)));
-  if (!head || head.alg !== "ES256") return null;
+  if (!head || head.alg !== "RS256") return null; // Access JWT luôn ký RS256 (RSA); ES256 → từ chối sớm, tránh DataError ở importKey
   const claims = parseJson(new TextDecoder().decode(b64u(p)));
-  if (!claims || typeof claims.aud !== "string" || claims.aud !== env.ACCESS_AUD) return null;
+  if (!claims) return null;
+  // Access đặt aud là mảng string; chấp nhận thêm scalar string cho parser khác
+  const audOk = claims.aud === env.ACCESS_AUD || (Array.isArray(claims.aud) && claims.aud.includes(env.ACCESS_AUD));
+  if (!audOk) return null;
   if (typeof claims.exp !== "number" || claims.exp * 1000 < Date.now()) return null;
+  if (env.ACCESS_TEAM && claims.iss !== `https://${env.ACCESS_TEAM}.cloudflareaccess.com`) return null;
   if (!jwksCache || Date.now() - jwksCache.at > 300_000) {
     const r = await fetch(`https://${env.ACCESS_TEAM}.cloudflareaccess.com/cdn-cgi/access/certs`);
     if (!r.ok) return null;
@@ -37,8 +41,8 @@ export async function verifyAccess(request: Request, env: Env): Promise<{ email:
   }
   const jwk = jwksCache.keys.find((k) => "kid" in k && k.kid === head.kid);
   if (!jwk) return null;
-  const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
-  const ok = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, b64u(s), new TextEncoder().encode(`${h}.${p}`));
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64u(s), new TextEncoder().encode(`${h}.${p}`));
   return ok ? { email: typeof claims.email === "string" ? claims.email : "" } : null;
 }
 
